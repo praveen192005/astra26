@@ -34,10 +34,8 @@
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Target Server URL:
-// - When deployed on Render: "https://YOUR-APP-NAME.onrender.com/api/telemetry"
-// - When testing locally on same WiFi: "http://192.168.1.XXX:8000/api/telemetry"
-const char* SERVER_URL    = "https://YOUR-APP-NAME.onrender.com/api/telemetry";
+// Target Server URL on Render:
+const char* SERVER_URL    = "https://astra26.onrender.com/api/telemetry";
 
 // Telemetry interval (in milliseconds)
 const unsigned long SEND_INTERVAL_MS = 3000; // Send telemetry every 3 seconds

@@ -24,10 +24,8 @@
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Target Upload URL:
-// - Cloud: "https://YOUR-APP-NAME.onrender.com/api/camera/upload"
-// - Local: "http://192.168.1.XXX:8000/api/camera/upload"
-const char* SERVER_UPLOAD_URL = "https://YOUR-APP-NAME.onrender.com/api/camera/upload";
+// Target Upload URL on Render:
+const char* SERVER_UPLOAD_URL = "https://astra26.onrender.com/api/camera/upload";
 
 // Capture interval in milliseconds (e.g. 15 seconds)
 const unsigned long CAPTURE_INTERVAL_MS = 15000;

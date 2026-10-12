@@ -111,8 +111,8 @@ Open `esp32/esp32_sensor_node.ino` and update lines 35-43:
 const char* WIFI_SSID     = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Use your Render public URL (or local PC IP http://192.168.1.X:8000/api/telemetry)
-const char* SERVER_URL    = "https://astra26-esp32-telemetry.onrender.com/api/telemetry";
+// Use your Render public URL:
+const char* SERVER_URL    = "https://astra26.onrender.com/api/telemetry";
 ```
 
 ### 3. Upload to Board
