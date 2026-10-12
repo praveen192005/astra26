@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astra26 | ESP32 Real-Time Telemetry & Camera Hub</title>
+  <meta name="description" content="Ultra-modern live telemetry dashboard for ESP32 with waterproof temperature, rain level, LDR, tilt detection, DC voltage, and ESP32-CAM feeds.">
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons for clean IoT visual indicators -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js for real-time telemetry graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Ambient glowing background effects -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <!-- Header Navigation -->
+  <header class="navbar" id="mainHeader">
+    <div class="nav-brand">
+      <div class="brand-logo">
+        <i class="fa-solid fa-microchip"></i>
+        <div class="pulse-ring"></div>
+      </div>
+      <div class="brand-text">
+        <h1>ASTRA-26</h1>
+        <span class="sub-badge">ESP32 IoT TELEMETRY HUB</span>
+      </div>
+    </div>
+
+    <!-- Live Connection Status & Device Pills -->
+    <div class="nav-status-group">
+      <div class="status-pill status-standby" id="deviceStatusPill">
+        <span class="status-dot"></span>
+        <span id="deviceStatusText">Awaiting Hardware</span>
+      </div>
+      <div class="info-pill" id="deviceRssiPill" title="WiFi Signal Strength">
+        <i class="fa-solid fa-wifi"></i>
+        <span id="wifiRssiVal">-- dBm</span>
+      </div>
+      <div class="info-pill" id="packetCountPill" title="Total telemetry packets received">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <span id="packetCountVal">0 pkts</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Controls -->
+    <div class="nav-actions">
+      <button class="btn btn-glass" id="btnOpenSimulator" title="Simulate sensor packets without hardware">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Simulator</span>
+      </button>
+      <button class="btn btn-glass" id="btnOpenWiring" title="View ESP32 GPIO pinout and schematics">
+        <i class="fa-solid fa-diagram-project"></i>
+        <span>Wiring Guide</span>
+      </button>
+      <button class="btn btn-icon" id="btnToggleSound" title="Toggle audio alarms for tilt & flood alerts">
+        <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+      </button>
+      <button class="btn btn-primary" id="btnExportCsv" title="Export historical records to CSV">
+        <i class="fa-solid fa-download"></i>
+        <span>Export Data</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <main class="dashboard-container" id="dashboardMain">
+    
+    <!-- Hero Alert Banner (Hidden by default, shown during tilt/flood alarms) -->
+    <div class="alert-banner hidden" id="globalAlertBanner">
+      <div class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="alert-content">
+        <h4 id="alertBannerTitle">HARDWARE ALERT DETECTED</h4>
+        <p id="alertBannerDesc">Tilt sensor triggered! Verify physical unit orientation.</p>
+      </div>
+      <button class="btn-alert-dismiss" id="btnDismissAlert"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- 6-Card Telemetry Grid -->
+    <section class="telemetry-grid" aria-label="Real-time Sensor Cards">
+      
+      <!-- CARD 1: WATERPROOF TEMPERATURE (DS18B20) -->
+      <article class="sensor-card card-temp" id="cardTemperature">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-temp"><i class="fa-solid fa-temperature-half"></i></span>
+            <div>
+              <h3>Waterproof Temperature</h3>
+              <span class="sensor-model">Dallas DS18B20 &bull; GPIO 4</span>
+            </div>
+          </div>
+          <button class="unit-toggle-btn" id="btnToggleTempUnit" title="Switch between °C and °F">
+            <span class="unit-active" id="unitC">°C</span> | <span id="unitF">°F</span>
+          </button>
+        </div>
+
+        <div class="card-body">
+          <div class="metric-display">
+            <span class="metric-value font-mono" id="tempValue">--.-</span>
+            <span class="metric-unit" id="tempUnitLabel">°C</span>
+          </div>
+
+          <div class="progress-track" title="Thermal gauge">
+            <div class="progress-bar progress-temp" id="tempProgressBar" style="width: 50%;"></div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">MIN RECORD</span>
+              <span class="sub-val font-mono" id="tempMinVal">-- °C</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">STATUS</span>
+              <span class="status-badge badge-cyan" id="tempStatusBadge">Optimal</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">MAX RECORD</span>
+              <span class="sub-val font-mono" id="tempMaxVal">-- °C</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 2: RAIN / WATER LEVEL SENSOR -->
+      <article class="sensor-card card-rain" id="cardRain">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-rain"><i class="fa-solid fa-cloud-showers-heavy"></i></span>
+            <div>
+              <h3>Rain & Water Level</h3>
+              <span class="sensor-model">Analog Level Probe &bull; GPIO 34</span>
+            </div>
+          </div>
+          <span class="raw-adc font-mono" id="rainRawAdc">ADC: ----</span>
+        </div>
+
+        <div class="card-body">
+          <div class="metric-display">
+            <span class="metric-value font-mono" id="rainValue">--.-</span>
+            <span class="metric-unit">%</span>
+          </div>
+
+          <div class="progress-track" title="Water immersion level">
+            <div class="progress-bar progress-rain" id="rainProgressBar" style="width: 0%;"></div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">ENVIRONMENT</span>
+              <span class="status-badge badge-blue" id="rainStatusBadge">Dry Surface</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">FLOOD RISK</span>
+              <span class="status-badge badge-gray" id="floodRiskBadge">Minimal</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 3: LDR AMBIENT LIGHT SENSOR -->
+      <article class="sensor-card card-ldr" id="cardLdr">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-ldr"><i class="fa-solid fa-sun" id="ldrIcon"></i></span>
+            <div>
+              <h3>Ambient Light (LDR)</h3>
+              <span class="sensor-model">Photoresistor &bull; GPIO 35</span>
+            </div>
+          </div>
+          <span class="raw-adc font-mono" id="ldrRawAdc">ADC: ----</span>
+        </div>
+
+        <div class="card-body">
+          <div class="metric-display">
+            <span class="metric-value font-mono" id="ldrValue">--.-</span>
+            <span class="metric-unit">%</span>
+          </div>
+
+          <div class="progress-track" title="Illuminance index">
+            <div class="progress-bar progress-ldr" id="ldrProgressBar" style="width: 0%;"></div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">LIGHTING CONDITION</span>
+              <span class="status-badge badge-amber" id="ldrStatusBadge">Daylight</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">EST. LUX</span>
+              <span class="sub-val font-mono" id="ldrLuxVal">-- lx</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 4: TILT & TAMPER SENSOR -->
+      <article class="sensor-card card-tilt" id="cardTilt">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-tilt"><i class="fa-solid fa-arrows-spin"></i></span>
+            <div>
+              <h3>Tilt & Incline State</h3>
+              <span class="sensor-model">SW-520D Ball Switch &bull; GPIO 27</span>
+            </div>
+          </div>
+          <span class="status-badge badge-green" id="tiltStateBadge">Normal</span>
+        </div>
+
+        <div class="card-body">
+          <!-- 3D Gyro Visual Incline Bubble -->
+          <div class="tilt-visual-container">
+            <div class="tilt-gyro-ring" id="tiltGyroRing">
+              <div class="tilt-bubble" id="tiltBubble">
+                <i class="fa-solid fa-crosshairs"></i>
+              </div>
+            </div>
+            <div class="tilt-status-label">
+              <span class="metric-status" id="tiltStatusText">LEVEL (NORMAL)</span>
+              <span class="tilt-subtext" id="tiltSubtext">Unit upright & balanced</span>
+            </div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">TAMPER ALARM</span>
+              <span class="sub-val" id="tamperAlarmStatus">ARMED</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">LAST INCLINE EVENT</span>
+              <span class="sub-val font-mono" id="lastTiltEventTime">None</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 5: VOLTAGE SENSOR & BATTERY HEALTH -->
+      <article class="sensor-card card-volt" id="cardVoltage">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-volt"><i class="fa-solid fa-bolt"></i></span>
+            <div>
+              <h3>DC Voltage & Battery</h3>
+              <span class="sensor-model">0-25V Divider &bull; GPIO 32</span>
+            </div>
+          </div>
+          <span class="status-badge badge-cyan" id="batteryTypeBadge">12V Battery</span>
+        </div>
+
+        <div class="card-body">
+          <div class="metric-display">
+            <span class="metric-value font-mono" id="voltageValue">--.--</span>
+            <span class="metric-unit">V</span>
+          </div>
+
+          <div class="battery-bar-container">
+            <div class="battery-shell">
+              <div class="battery-fill" id="batteryFillBar" style="width: 80%;"></div>
+            </div>
+            <span class="battery-pct font-mono" id="batteryPctVal">--%</span>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">BATTERY HEALTH</span>
+              <span class="status-badge badge-emerald" id="voltageHealthBadge">Nominal</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">BUS VOLTAGE</span>
+              <span class="sub-val font-mono" id="busVoltageRef">12.0V Nom.</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 6: ESP32-CAM LIVE SURVEILLANCE VIEW -->
+      <article class="sensor-card card-cam" id="cardCamera">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-cam"><i class="fa-solid fa-video"></i></span>
+            <div>
+              <h3>ESP32-CAM Viewport</h3>
+              <span class="sensor-model">AI-Thinker OV2640 &bull; Live Feed</span>
+            </div>
+          </div>
+          <div class="cam-badges">
+            <span class="cam-live-indicator"><span class="rec-dot"></span> LIVE</span>
+            <button class="cam-refresh-btn" id="btnRefreshCam" title="Reload camera frame"><i class="fa-solid fa-rotate"></i></button>
+          </div>
+        </div>
+
+        <div class="card-body cam-body">
+          <div class="camera-viewport-box" id="cameraViewportBox">
+            <!-- Standby or Real Image -->
+            <img src="assets/camera_standby.jpg" alt="ESP32 Camera Stream View" id="cameraImageFeed" class="cam-feed-img">
+            <div class="cam-overlay-hud">
+              <div class="hud-top">
+                <span class="hud-tag font-mono"><i class="fa-solid fa-camera"></i> CAM-01</span>
+                <span class="hud-tag font-mono" id="camTimestamp">--:--:--</span>
+              </div>
+              <div class="hud-bottom">
+                <span class="hud-tag font-mono" id="camResolution">640x480 VGA</span>
+                <button class="btn-cam-expand" id="btnExpandCam" title="Expand Camera View"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- Interactive Real-Time Charting Section -->
+    <section class="charts-section" aria-label="Real-time Visual Analytics">
+      <div class="section-header">
+        <div class="section-title">
+          <i class="fa-solid fa-chart-line"></i>
+          <h2>Real-Time Telemetry Analytics</h2>
+        </div>
+        <div class="chart-controls">
+          <button class="chart-filter-btn active" data-range="20">Last 20</button>
+          <button class="chart-filter-btn" data-range="50">Last 50</button>
+          <button class="chart-filter-btn" data-range="100">Last 100</button>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <!-- Chart 1: Temperature & Rain -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h4><i class="fa-solid fa-cloud-sun-rain"></i> Thermal & Precipitation Dynamics</h4>
+            <span class="chart-legend-hint">DS18B20 Temp (°C) &bull; Rain Index (%)</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="chartTempRain"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Light & Voltage -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h4><i class="fa-solid fa-bolt-lightning"></i> Light Intensity & Voltage Regulation</h4>
+            <span class="chart-legend-hint">LDR Level (%) &bull; Supply Voltage (V)</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="chartLightVolt"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Telemetry History Log Table -->
+    <section class="logs-section" aria-label="Live Telemetry Event Log">
+      <div class="section-header">
+        <div class="section-title">
+          <i class="fa-solid fa-list-check"></i>
+          <h2>Telemetry Transmission Ledger</h2>
+        </div>
+        <div class="log-actions">
+          <span class="log-counter" id="logCounter">0 entries recorded</span>
+          <button class="btn btn-glass-sm" id="btnClearLogs"><i class="fa-solid fa-trash-can"></i> Clear</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="telemetry-table" id="telemetryTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Device</th>
+              <th>Temp</th>
+              <th>Rain %</th>
+              <th>Rain Status</th>
+              <th>LDR %</th>
+              <th>Tilt State</th>
+              <th>Voltage</th>
+              <th>Battery %</th>
+              <th>WiFi RSSI</th>
+            </tr>
+          </thead>
+          <tbody id="telemetryTableBody">
+            <tr class="empty-row">
+              <td colspan="10"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for initial telemetry stream from ESP32...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: HARDWARE SIMULATOR (Test website directly in browser)        -->
+  <!-- =================================================================== -->
+  <div class="modal-overlay hidden" id="modalSimulator">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-microchip-slash"></i>
+          <h3>Hardware Telemetry Simulator</h3>
+        </div>
+        <button class="btn-modal-close" id="btnCloseSimulator"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Test your website and charts in real-time before connecting your physical ESP32. Adjust the sliders and transmit packets:</p>
+
+        <div class="sim-controls-grid">
+          <div class="sim-group">
+            <label for="simTemp">Waterproof Temp: <span id="simTempLabel" class="font-mono">27.5 °C</span></label>
+            <input type="range" id="simTemp" min="-10" max="60" step="0.5" value="27.5">
+          </div>
+
+          <div class="sim-group">
+            <label for="simRain">Rain / Water Level: <span id="simRainLabel" class="font-mono">15 %</span></label>
+            <input type="range" id="simRain" min="0" max="100" step="1" value="15">
+          </div>
+
+          <div class="sim-group">
+            <label for="simLdr">LDR Light Intensity: <span id="simLdrLabel" class="font-mono">65 %</span></label>
+            <input type="range" id="simLdr" min="0" max="100" step="1" value="65">
+          </div>
+
+          <div class="sim-group">
+            <label for="simVolt">DC Voltage: <span id="simVoltLabel" class="font-mono">12.4 V</span></label>
+            <input type="range" id="simVolt" min="0" max="24" step="0.1" value="12.4">
+          </div>
+
+          <div class="sim-group sim-group-switch">
+            <label for="simTiltToggle">Tilt / Incline Sensor State</label>
+            <div class="switch-container">
+              <input type="checkbox" id="simTiltToggle">
+              <label for="simTiltToggle" class="switch-slider"></label>
+              <span id="simTiltStateLabel">0 (Level)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sim-action-row">
+          <button class="btn btn-primary" id="btnSimulatePacket">
+            <i class="fa-solid fa-paper-plane"></i> Transmit Packet
+          </button>
+          <button class="btn btn-glass" id="btnToggleAutoSim">
+            <i class="fa-solid fa-play" id="autoSimIcon"></i> <span id="autoSimText">Auto-Stream (Every 3s)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: WIRING SCHEMATIC & PINOUT GUIDE                              -->
+  <!-- =================================================================== -->
+  <div class="modal-overlay hidden" id="modalWiring">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-diagram-project"></i>
+          <h3>ESP32 Hardware Wiring & Pinout Guide</h3>
+        </div>
+        <button class="btn-modal-close" id="btnCloseWiring"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Connect your sensors to your ESP32 board following this tested pinout. Analog sensors are placed on <strong>ADC1</strong> pins to avoid WiFi interference.</p>
+
+        <div class="wiring-table-wrapper">
+          <table class="wiring-table">
+            <thead>
+              <tr>
+                <th>Sensor</th>
+                <th>Sensor Pin</th>
+                <th>ESP32 Pin</th>
+                <th>Required Components & Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>DS18B20 Temp</strong><br><small>Waterproof probe</small></td>
+                <td>VCC (Red)<br>GND (Black)<br>DATA (Yellow)</td>
+                <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 4</span></td>
+                <td><strong>4.7 kΩ pull-up resistor</strong> between 3.3V and Yellow DATA wire. Without this, sensor reads -127°C.</td>
+              </tr>
+              <tr>
+                <td><strong>Rain / Water Level</strong><br><small>Analog probe</small></td>
+                <td>VCC<br>GND<br>AO (Analog Out)</td>
+                <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 34</span></td>
+                <td>ADC1 pin. Inverted math: 4095 = bone dry (0%), ~1200 = submerged in water (100%).</td>
+              </tr>
+              <tr>
+                <td><strong>LDR Light Sensor</strong><br><small>Photoresistor</small></td>
+                <td>VCC<br>GND<br>AO (Analog Out)</td>
+                <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 35</span></td>
+                <td>ADC1 pin. Higher voltage = brighter light.</td>
+              </tr>
+              <tr>
+                <td><strong>Tilt Switch</strong><br><small>SW-520D Ball</small></td>
+                <td>Pin 1 (Signal)<br>Pin 2 (Ground)</td>
+                <td><span class="badge-pin badge-highlight">GPIO 27</span><br><span class="badge-pin">GND</span></td>
+                <td>Internal pull-up enabled in ESP32 firmware. Triggers tamper alert when tilted.</td>
+              </tr>
+              <tr>
+                <td><strong>Voltage Divider</strong><br><small>0-25V Sensor</small></td>
+                <td>VCC (+)<br>GND (-)<br>Signal (S)</td>
+                <td><span class="badge-pin">Battery +</span><br><span class="badge-pin">ESP32 GND</span><br><span class="badge-pin badge-highlight">GPIO 32</span></td>
+                <td>Scales 0-25V DC down 5:1 for safe 0-3.3V reading. <strong>Must share common GND with ESP32!</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="render-deploy-hint">
+          <h4><i class="fa-solid fa-cloud"></i> How to Host on Render (Free & Fast):</h4>
+          <ol>
+            <li>Create a free account on <a href="https://render.com" target="_blank" rel="noopener">render.com</a>.</li>
+            <li>Push this project to a GitHub repository.</li>
+            <li>Click <strong>New +</strong> &rarr; <strong>Web Service</strong> &rarr; Select your GitHub repository.</li>
+            <li>Render detects <code>render.yaml</code> or select <strong>Python 3</strong> with start command: <code>uvicorn main:app --host 0.0.0.0 --port $PORT</code>.</li>
+            <li>Copy your public Render URL (e.g., <code>https://astra26-hub.onrender.com</code>) into <code>SERVER_URL</code> inside your ESP32 Arduino code!</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: EXPANDED CAMERA VIEW                                         -->
+  <!-- =================================================================== -->
+  <div class="modal-overlay hidden" id="modalCameraExpanded">
+    <div class="modal-card modal-wide modal-cam-view">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-camera"></i>
+          <h3>ESP32-CAM High-Definition Viewport</h3>
+        </div>
+        <button class="btn-modal-close" id="btnCloseExpandedCam"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body modal-cam-body">
+        <div class="expanded-cam-wrapper">
+          <img src="assets/camera_standby.jpg" id="expandedCamImage" alt="Expanded ESP32 Camera Snapshot">
+          <div class="cam-info-bar">
+            <span id="expandedCamTime">Timestamp: --:--:--</span>
+            <span id="expandedCamDevice">Device: esp32-cam-01</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio element for subtle alarm tone (Web Audio API fallback) -->
+  <audio id="alertAudio" preload="none"></audio>
+
+  <!-- Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
