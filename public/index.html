@@ -169,7 +169,47 @@
         </div>
       </article>
 
-      <!-- CARD 3: LDR AMBIENT LIGHT SENSOR -->
+      <!-- CARD 3: SOIL MOISTURE SENSOR (0-4095 ADC RANGE / 4096 LEVELS) -->
+      <article class="sensor-card card-soil" id="cardSoil">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-soil"><i class="fa-solid fa-seedling"></i></span>
+            <div>
+              <h3>Soil Moisture Level</h3>
+              <span class="sensor-model">Capacitive / Resistive &bull; GPIO 33 (ADC1)</span>
+            </div>
+          </div>
+          <span class="raw-adc font-mono" id="soilRawAdc" title="12-bit ADC Raw Value (0 - 4095, 4096 discrete levels)">ADC: ---- / 4095</span>
+        </div>
+
+        <div class="card-body">
+          <div class="metric-display">
+            <span class="metric-value font-mono" id="soilValue">--.-</span>
+            <span class="metric-unit">%</span>
+          </div>
+
+          <div class="progress-track" title="Soil Moisture Saturation Level">
+            <div class="progress-bar progress-soil" id="soilProgressBar" style="width: 0%;"></div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">SOIL CONDITION</span>
+              <span class="status-badge badge-green" id="soilStatusBadge">Optimal Moisture</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">ADC SCALE</span>
+              <span class="sub-val font-mono" title="ESP32 12-bit ADC resolution gives 4096 steps from 0 to 4095">0–4095 (4096 levels)</span>
+            </div>
+          </div>
+          <div class="soil-health-note">
+            <i class="fa-solid fa-hand-holding-droplet"></i>
+            <span id="soilHealthText">Healthy Soil Condition: Balanced Hydration</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 4: LDR AMBIENT LIGHT SENSOR -->
       <article class="sensor-card card-ldr" id="cardLdr">
         <div class="card-header">
           <div class="sensor-title">
@@ -205,7 +245,7 @@
         </div>
       </article>
 
-      <!-- CARD 4: TILT & TAMPER SENSOR -->
+      <!-- CARD 5: TILT & TAMPER SENSOR -->
       <article class="sensor-card card-tilt" id="cardTilt">
         <div class="card-header">
           <div class="sensor-title">
@@ -245,7 +285,95 @@
         </div>
       </article>
 
-      <!-- CARD 5: VOLTAGE SENSOR & BATTERY HEALTH -->
+      <!-- CARD 6: MPU-6050 6-AXIS IMU (ANGLES & VIBRATION MONITOR) -->
+      <article class="sensor-card card-mpu" id="cardMpu">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-mpu"><i class="fa-solid fa-compass-drafting"></i></span>
+            <div>
+              <h3>MPU-6050 6-Axis IMU</h3>
+              <span class="sensor-model">I2C 0x68 &bull; SDA 21 / SCL 22</span>
+            </div>
+          </div>
+          <span class="status-badge badge-green" id="mpuStatusBadge">Standby</span>
+        </div>
+
+        <div class="card-body">
+          <!-- Dual Pitch & Roll Visualizer (Angles) -->
+          <div class="mpu-visual-grid">
+            <div class="mpu-angle-box">
+              <span class="mpu-angle-label">PITCH ANGLE (X)</span>
+              <div class="mpu-gauge-wrap">
+                <span class="mpu-angle-val font-mono" id="mpuPitchVal">0.0°</span>
+                <div class="mpu-horizon-bar">
+                  <div class="mpu-horizon-level" id="mpuPitchLevel" style="left: 50%; width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="mpu-angle-box">
+              <span class="mpu-angle-label">ROLL ANGLE (Y)</span>
+              <div class="mpu-gauge-wrap">
+                <span class="mpu-angle-val font-mono" id="mpuRollVal">0.0°</span>
+                <div class="mpu-horizon-bar">
+                  <div class="mpu-horizon-level" id="mpuRollLevel" style="left: 50%; width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Vibration & Shock Monitor -->
+          <div class="mpu-vibration-container">
+            <div class="vib-header">
+              <span class="vib-label"><i class="fa-solid fa-wave-square"></i> LIVE VIBRATION & SHOCK</span>
+              <span class="status-badge badge-green" id="vibrationStatusBadge">Smooth / Stable</span>
+            </div>
+            <div class="vib-metric-row">
+              <div class="vib-val-box">
+                <span class="vib-num font-mono" id="vibrationVal">0.02 g</span>
+                <span class="vib-unit">dynamic shock</span>
+              </div>
+              <div class="vib-track-wrap">
+                <div class="vib-progress-track">
+                  <div class="vib-progress-bar" id="vibrationProgressBar" style="width: 2%;"></div>
+                </div>
+                <div class="vib-sub-metric font-mono">
+                  <span>Gyro: <strong id="gyroMagVal">0.0 °/s</strong></span>
+                  <span>Shock Limit: 1.50 g</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Accelerometer Tri-Axis readout -->
+          <div class="mpu-axis-metrics">
+            <div class="axis-pill" title="X Acceleration">
+              <span class="axis-tag">Ax</span>
+              <span class="axis-val font-mono" id="accelXVal">0.00 g</span>
+            </div>
+            <div class="axis-pill" title="Y Acceleration">
+              <span class="axis-tag">Ay</span>
+              <span class="axis-val font-mono" id="accelYVal">0.00 g</span>
+            </div>
+            <div class="axis-pill" title="Z Acceleration">
+              <span class="axis-tag">Az</span>
+              <span class="axis-val font-mono" id="accelZVal">1.00 g</span>
+            </div>
+          </div>
+
+          <div class="card-footer-metrics">
+            <div class="sub-stat">
+              <span class="sub-label">TOTAL G-FORCE</span>
+              <span class="sub-val font-mono" id="totalGVal">1.00 g</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-label">MOTION STATE</span>
+              <span class="status-badge badge-cyan" id="motionStatusBadge">Level Horizon</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 6: VOLTAGE SENSOR & BATTERY HEALTH -->
       <article class="sensor-card card-volt" id="cardVoltage">
         <div class="card-header">
           <div class="sensor-title">
@@ -380,9 +508,10 @@
               <th>Device</th>
               <th>Temp</th>
               <th>Rain %</th>
-              <th>Rain Status</th>
+              <th>Soil % (ADC: 0-4095)</th>
               <th>LDR %</th>
               <th>Tilt State</th>
+              <th>MPU Tilt & Vibration</th>
               <th>Voltage</th>
               <th>Battery %</th>
               <th>WiFi RSSI</th>
@@ -390,7 +519,7 @@
           </thead>
           <tbody id="telemetryTableBody">
             <tr class="empty-row">
-              <td colspan="10"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for initial telemetry stream from ESP32...</td>
+              <td colspan="11"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for initial telemetry stream from ESP32...</td>
             </tr>
           </tbody>
         </table>
@@ -426,6 +555,11 @@
           </div>
 
           <div class="sim-group">
+            <label for="simSoil">Soil Moisture (0-4095 ADC): <span id="simSoilLabel" class="font-mono">52.0 % (ADC: 2260)</span></label>
+            <input type="range" id="simSoil" min="0" max="100" step="1" value="52">
+          </div>
+
+          <div class="sim-group">
             <label for="simLdr">LDR Light Intensity: <span id="simLdrLabel" class="font-mono">65 %</span></label>
             <input type="range" id="simLdr" min="0" max="100" step="1" value="65">
           </div>
@@ -433,6 +567,21 @@
           <div class="sim-group">
             <label for="simVolt">DC Voltage: <span id="simVoltLabel" class="font-mono">12.4 V</span></label>
             <input type="range" id="simVolt" min="0" max="24" step="0.1" value="12.4">
+          </div>
+
+          <div class="sim-group">
+            <label for="simPitch">MPU6050 Pitch: <span id="simPitchLabel" class="font-mono">0.0 °</span></label>
+            <input type="range" id="simPitch" min="-90" max="90" step="1" value="0">
+          </div>
+
+          <div class="sim-group">
+            <label for="simRoll">MPU6050 Roll: <span id="simRollLabel" class="font-mono">0.0 °</span></label>
+            <input type="range" id="simRoll" min="-180" max="180" step="1" value="0">
+          </div>
+
+          <div class="sim-group">
+            <label for="simVib">MPU6050 Vibration / Shock: <span id="simVibLabel" class="font-mono">0.02 g (Smooth)</span></label>
+            <input type="range" id="simVib" min="0" max="2" step="0.05" value="0.02">
           </div>
 
           <div class="sim-group sim-group-switch">
@@ -493,13 +642,25 @@
                 <td><strong>Rain / Water Level</strong><br><small>Analog probe</small></td>
                 <td>VCC<br>GND<br>AO (Analog Out)</td>
                 <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 34</span></td>
-                <td>ADC1 pin. Inverted math: 4095 = bone dry (0%), ~1200 = submerged in water (100%).</td>
+                <td>ADC1 pin. Direct scale for Water Level Sensor: dry is ~0 ADC (0%), submerged is ~2800 ADC (100%). Inverted scale option also supported for raindrop plates.</td>
+              </tr>
+              <tr>
+                <td><strong>Soil Moisture Sensor</strong><br><small>Capacitive / Resistive</small></td>
+                <td>VCC<br>GND<br>AO (Analog Out)</td>
+                <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 33</span></td>
+                <td>ADC1 pin (safe with WiFi). <strong>12-bit ADC provides 4096 discrete levels (0 to 4095)</strong>. Capacitive v1.2: Air/Dry is ~3200-3500 ADC (0%), Submerged/Wet is ~1200-1400 ADC (100%).</td>
               </tr>
               <tr>
                 <td><strong>LDR Light Sensor</strong><br><small>Photoresistor</small></td>
                 <td>VCC<br>GND<br>AO (Analog Out)</td>
                 <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 35</span></td>
-                <td>ADC1 pin. Higher voltage = brighter light.</td>
+                <td>ADC1 pin. Direct scale: dark is ~0 ADC (0%), bright is ~3800 ADC (100%). Inverted scale mode also configurable in firmware.</td>
+              </tr>
+              <tr>
+                <td><strong>MPU-6050 IMU</strong><br><small>6-Axis Gyro & Accel</small></td>
+                <td>VCC<br>GND<br>SDA<br>SCL</td>
+                <td><span class="badge-pin">3.3V</span><br><span class="badge-pin">GND</span><br><span class="badge-pin badge-highlight">GPIO 21</span><br><span class="badge-pin badge-highlight">GPIO 22</span></td>
+                <td>Hardware I2C bus (Address 0x68). Measures live Inclination Angles (Pitch & Roll in degrees), dynamic Vibrations & shock (g), and rotational angular velocity (°/s).</td>
               </tr>
               <tr>
                 <td><strong>Tilt Switch</strong><br><small>SW-520D Ball</small></td>

@@ -62,19 +62,38 @@ class SensorPayload(BaseModel):
     deviceId: Optional[str] = "esp32-node-01"
     temperature: Optional[float] = Field(25.0, description="Waterproof sensor temperature in Celsius")
     rainLevel: Optional[float] = Field(0.0, description="Rain / Water level percentage 0-100%")
-    rainRaw: Optional[int] = Field(4095, description="Raw ADC value from rain sensor (0-4095)")
+    rainRaw: Optional[int] = Field(0, description="Raw ADC value from water/rain sensor (0-4095)")
+    soilMoisture: Optional[float] = Field(45.0, description="Soil moisture level percentage 0-100%")
+    soilRaw: Optional[int] = Field(2048, description="Raw ADC value from soil moisture sensor (0-4095)")
+    soilMaxRaw: Optional[int] = Field(4095, description="Maximum scale for 12-bit ADC (4096 discrete levels)")
     ldrValue: Optional[float] = Field(50.0, description="LDR Light level percentage 0-100%")
     ldrRaw: Optional[int] = Field(2048, description="Raw ADC value from LDR sensor (0-4095)")
     tiltState: Optional[int] = Field(0, description="Tilt sensor state: 0 = Level/Normal, 1 = Tilted/Triggered")
     voltage: Optional[float] = Field(12.4, description="Measured supply or battery voltage in Volts")
     rssi: Optional[int] = Field(-60, description="WiFi signal strength in dBm")
     uptime: Optional[int] = Field(None, description="ESP32 uptime in seconds")
+    mpuConnected: Optional[bool] = Field(False, description="Whether MPU6050 6-axis IMU is connected")
+    pitch: Optional[float] = Field(0.0, description="Pitch inclination angle in degrees (-90 to +90)")
+    roll: Optional[float] = Field(0.0, description="Roll inclination angle in degrees (-180 to +180)")
+    vibration: Optional[float] = Field(0.02, description="Vibration intensity in g (dynamic acceleration magnitude)")
+    vibrationPct: Optional[float] = Field(5.0, description="Vibration index percentage 0-100%")
+    accelX: Optional[float] = Field(0.0, description="X-axis linear acceleration in g")
+    accelY: Optional[float] = Field(0.0, description="Y-axis linear acceleration in g")
+    accelZ: Optional[float] = Field(1.0, description="Z-axis linear acceleration in g")
+    totalG: Optional[float] = Field(1.0, description="Total vector acceleration magnitude in g")
+    gyroX: Optional[float] = Field(0.0, description="X-axis angular velocity in deg/s")
+    gyroY: Optional[float] = Field(0.0, description="Y-axis angular velocity in deg/s")
+    gyroZ: Optional[float] = Field(0.0, description="Z-axis angular velocity in deg/s")
+    gyroMag: Optional[float] = Field(0.0, description="Rotational angular speed magnitude in deg/s")
 
 
 def compute_derived_metrics(data: Dict[str, Any]) -> Dict[str, Any]:
     """Calculate percentages, alerts, and descriptive statuses for UI displays."""
+    import math
+
     temp = float(data.get("temperature", 0.0))
     rain = float(data.get("rainLevel", 0.0))
+    soil = float(data.get("soilMoisture", 0.0))
     ldr = float(data.get("ldrValue", 0.0))
     tilt = int(data.get("tiltState", 0))
     volt = float(data.get("voltage", 0.0))
@@ -88,6 +107,24 @@ def compute_derived_metrics(data: Dict[str, Any]) -> Dict[str, Any]:
         rain_status = "Moderate Rain"
     else:
         rain_status = "Heavy Rain / High Water"
+
+    # Derive Soil Moisture Status & Soil Health Recommendation
+    # ESP32 12-bit ADC has 4096 discrete levels: 0 to 4095
+    if soil < 15:
+        soil_status = "Very Dry / Desert"
+        soil_health = "Critical Drought: Immediate Irrigation Needed"
+    elif soil < 35:
+        soil_status = "Dry Soil"
+        soil_health = "Low Moisture: Watering Recommended"
+    elif soil < 70:
+        soil_status = "Optimal Moisture"
+        soil_health = "Healthy Soil Condition: Balanced Hydration"
+    elif soil < 85:
+        soil_status = "Wet / Saturated"
+        soil_health = "Abundant Moisture: Irrigation Sufficient"
+    else:
+        soil_status = "Waterlogged / Flooded"
+        soil_health = "Over-saturated: Risk of Root Asphyxiation"
 
     # Derive Light Status
     if ldr < 15:
@@ -106,12 +143,10 @@ def compute_derived_metrics(data: Dict[str, Any]) -> Dict[str, Any]:
     # Auto-detect standard voltage systems: 12V system (nominal 10.5V - 13.0V), 
     # 3.7V Li-ion (3.0V - 4.2V), or 5V rail (4.0V - 5.5V)
     if volt >= 8.0:
-        # Assume 12V battery system
         v_min, v_max = 10.5, 12.8
         battery_pct = max(0, min(100, int(((volt - v_min) / (v_max - v_min)) * 100)))
         system_type = "12V Battery Pack"
     elif volt >= 2.5 and volt < 6.0:
-        # Assume 1S Li-ion or 5V rail
         if volt <= 4.3:
             v_min, v_max = 3.2, 4.2
             battery_pct = max(0, min(100, int(((volt - v_min) / (v_max - v_min)) * 100)))
@@ -124,16 +159,76 @@ def compute_derived_metrics(data: Dict[str, Any]) -> Dict[str, Any]:
         battery_pct = max(0, min(100, int((volt / 15.0) * 100)))
         system_type = "DC Source"
 
+    # Derive MPU6050 Motion, Angles & Vibration metrics
+    pitch = float(data.get("pitch", 0.0))
+    roll = float(data.get("roll", 0.0))
+    ax = float(data.get("accelX", 0.0))
+    ay = float(data.get("accelY", 0.0))
+    az = float(data.get("accelZ", 1.0))
+    gx = float(data.get("gyroX", 0.0))
+    gy = float(data.get("gyroY", 0.0))
+    gz = float(data.get("gyroZ", 0.0))
+    mpu_connected = bool(data.get("mpuConnected", False))
+
+    total_g = float(data.get("totalG", round(math.sqrt(ax * ax + ay * ay + az * az), 2)))
+    gyro_mag = float(data.get("gyroMag", round(math.sqrt(gx * gx + gy * gy + gz * gz), 1)))
+
+    # Vibration intensity: dynamic deviation from 1.0g gravity
+    vib_g = float(data.get("vibration", round(abs(total_g - 1.0), 2)))
+    vib_pct = float(data.get("vibrationPct", round(max(0.0, min(100.0, (vib_g / 1.5) * 100.0)), 1)))
+
+    if vib_g < 0.08:
+        vib_status = "Smooth / Stable"
+    elif vib_g < 0.25:
+        vib_status = "Low Vibration"
+    elif vib_g < 0.60:
+        vib_status = "Moderate Vibration"
+    else:
+        vib_status = "Severe Shock / High Vibration"
+
+    if mpu_connected:
+        if vib_g >= 0.60:
+            motion_status = "Severe Shock Alert"
+        elif abs(pitch) > 25.0 or abs(roll) > 25.0:
+            motion_status = "Incline Warning"
+        elif vib_g >= 0.25:
+            motion_status = "Moderate Vibration"
+        elif gyro_mag > 15.0 or abs(total_g - 1.0) > 0.25:
+            motion_status = "Dynamic Motion"
+        else:
+            motion_status = "Level Horizon"
+    else:
+        motion_status = "Standby"
+
     now = datetime.now()
     return {
         **data,
         "temperatureF": round(temp * 9.0 / 5.0 + 32.0, 1),
         "rainStatus": rain_status,
+        "soilStatus": soil_status,
+        "soilHealth": soil_health,
+        "soilRawMax": 4095,
+        "soilAdcLevels": 4096,
         "lightStatus": light_status,
         "tiltStatus": tilt_status,
         "tiltAlert": bool(tilt != 0),
         "batteryPercent": battery_pct,
         "systemType": system_type,
+        "pitch": pitch,
+        "roll": roll,
+        "accelX": ax,
+        "accelY": ay,
+        "accelZ": az,
+        "gyroX": gx,
+        "gyroY": gy,
+        "gyroZ": gz,
+        "totalG": total_g,
+        "gyroMag": gyro_mag,
+        "vibration": vib_g,
+        "vibrationPct": vib_pct,
+        "vibrationStatus": vib_status,
+        "motionStatus": motion_status,
+        "mpuConnected": mpu_connected,
         "timestamp": now.isoformat(),
         "timeFormatted": now.strftime("%H:%M:%S"),
         "dateFormatted": now.strftime("%Y-%m-%d"),
@@ -195,13 +290,29 @@ async def get_latest_telemetry():
             "deviceId": "esp32-node-01 (Standby)",
             "temperature": 26.5,
             "rainLevel": 0.0,
-            "rainRaw": 4095,
+            "rainRaw": 0,
+            "soilMoisture": 52.0,
+            "soilRaw": 2260,
+            "soilMaxRaw": 4095,
             "ldrValue": 55.0,
             "ldrRaw": 2250,
             "tiltState": 0,
             "voltage": 12.45,
             "rssi": -65,
-            "uptime": int(time.time() - server_start_time)
+            "uptime": int(time.time() - server_start_time),
+            "mpuConnected": False,
+            "pitch": 0.0,
+            "roll": 0.0,
+            "vibration": 0.02,
+            "vibrationPct": 1.5,
+            "accelX": 0.0,
+            "accelY": 0.0,
+            "accelZ": 1.0,
+            "totalG": 1.0,
+            "gyroX": 0.0,
+            "gyroY": 0.0,
+            "gyroZ": 0.0,
+            "gyroMag": 0.0
         })
         return {
             "status": "standby",
@@ -239,20 +350,51 @@ async def simulate_telemetry(payload: Optional[SensorPayload] = None):
     if payload is None:
         sim_temp = round(25.0 + 3.0 * math.sin(t / 10.0), 1)
         sim_rain = round(max(0.0, 50.0 + 40.0 * math.cos(t / 8.0)), 1)
+        sim_soil = round(max(5.0, min(95.0, 55.0 + 35.0 * math.sin(t / 11.0))), 1)
+        # 12-bit ADC raw value: 0 to 4095 (4096 levels)
+        sim_soil_raw = int(3200 - (sim_soil / 100.0) * (3200 - 1400))
         sim_ldr = round(max(5.0, 60.0 + 30.0 * math.sin(t / 12.0)), 1)
         sim_tilt = 1 if (int(t) % 20 > 15) else 0
         sim_volt = round(12.3 + 0.3 * math.sin(t / 15.0), 2)
+        sim_pitch = round(12.0 * math.sin(t / 6.0), 1)
+        sim_roll = round(18.0 * math.cos(t / 5.0), 1)
+        sim_ax = round(0.2 * math.sin(t / 4.0), 2)
+        sim_ay = round(0.15 * math.cos(t / 4.0), 2)
+        sim_az = round(0.98 + 0.08 * math.sin(t / 6.0), 2)
+        sim_total_g = round(math.sqrt(sim_ax**2 + sim_ay**2 + sim_az**2), 2)
+        # Simulate vibration spike during periodic cycles
+        sim_vib = round(abs(sim_total_g - 1.0) + (0.45 if (int(t) % 18 > 14) else 0.02), 2)
+        sim_gx = round(3.5 * math.cos(t / 3.0), 1)
+        sim_gy = round(2.0 * math.sin(t / 3.0), 1)
+        sim_gz = round(1.2 * math.cos(t / 2.0), 1)
+        sim_gyro_mag = round(math.sqrt(sim_gx**2 + sim_gy**2 + sim_gz**2), 1)
         payload = SensorPayload(
             deviceId="esp32-simulator",
             temperature=sim_temp,
             rainLevel=sim_rain,
-            rainRaw=int(4095 - (sim_rain * 40.95)),
+            rainRaw=int(sim_rain * 28.0),
+            soilMoisture=sim_soil,
+            soilRaw=sim_soil_raw,
+            soilMaxRaw=4095,
             ldrValue=sim_ldr,
-            ldrRaw=int(sim_ldr * 40.95),
+            ldrRaw=int(sim_ldr * 38.0),
             tiltState=sim_tilt,
             voltage=sim_volt,
             rssi=-58,
-            uptime=int(t - server_start_time)
+            uptime=int(t - server_start_time),
+            mpuConnected=True,
+            pitch=sim_pitch,
+            roll=sim_roll,
+            vibration=sim_vib,
+            vibrationPct=round(max(0.0, min(100.0, (sim_vib / 1.5) * 100.0)), 1),
+            accelX=sim_ax,
+            accelY=sim_ay,
+            accelZ=sim_az,
+            totalG=sim_total_g,
+            gyroX=sim_gx,
+            gyroY=sim_gy,
+            gyroZ=sim_gz,
+            gyroMag=sim_gyro_mag
         )
     return await ingest_telemetry(payload)
 

@@ -53,6 +53,13 @@
     rainStatusBadge: document.getElementById('rainStatusBadge'),
     floodRiskBadge: document.getElementById('floodRiskBadge'),
 
+    // Soil Moisture Card
+    soilValue: document.getElementById('soilValue'),
+    soilRawAdc: document.getElementById('soilRawAdc'),
+    soilProgressBar: document.getElementById('soilProgressBar'),
+    soilStatusBadge: document.getElementById('soilStatusBadge'),
+    soilHealthText: document.getElementById('soilHealthText'),
+
     // LDR Card
     ldrValue: document.getElementById('ldrValue'),
     ldrRawAdc: document.getElementById('ldrRawAdc'),
@@ -77,6 +84,23 @@
     batteryTypeBadge: document.getElementById('batteryTypeBadge'),
     voltageHealthBadge: document.getElementById('voltageHealthBadge'),
     busVoltageRef: document.getElementById('busVoltageRef'),
+
+    // MPU Card
+    cardMpu: document.getElementById('cardMpu'),
+    mpuStatusBadge: document.getElementById('mpuStatusBadge'),
+    mpuPitchVal: document.getElementById('mpuPitchVal'),
+    mpuPitchLevel: document.getElementById('mpuPitchLevel'),
+    mpuRollVal: document.getElementById('mpuRollVal'),
+    mpuRollLevel: document.getElementById('mpuRollLevel'),
+    vibrationVal: document.getElementById('vibrationVal'),
+    vibrationStatusBadge: document.getElementById('vibrationStatusBadge'),
+    vibrationProgressBar: document.getElementById('vibrationProgressBar'),
+    gyroMagVal: document.getElementById('gyroMagVal'),
+    accelXVal: document.getElementById('accelXVal'),
+    accelYVal: document.getElementById('accelYVal'),
+    accelZVal: document.getElementById('accelZVal'),
+    totalGVal: document.getElementById('totalGVal'),
+    motionStatusBadge: document.getElementById('motionStatusBadge'),
 
     // Camera Card
     cameraImageFeed: document.getElementById('cameraImageFeed'),
@@ -106,12 +130,20 @@
     simTempLabel: document.getElementById('simTempLabel'),
     simRain: document.getElementById('simRain'),
     simRainLabel: document.getElementById('simRainLabel'),
+    simSoil: document.getElementById('simSoil'),
+    simSoilLabel: document.getElementById('simSoilLabel'),
     simLdr: document.getElementById('simLdr'),
     simLdrLabel: document.getElementById('simLdrLabel'),
     simVolt: document.getElementById('simVolt'),
     simVoltLabel: document.getElementById('simVoltLabel'),
     simTiltToggle: document.getElementById('simTiltToggle'),
     simTiltStateLabel: document.getElementById('simTiltStateLabel'),
+    simPitch: document.getElementById('simPitch'),
+    simPitchLabel: document.getElementById('simPitchLabel'),
+    simRoll: document.getElementById('simRoll'),
+    simRollLabel: document.getElementById('simRollLabel'),
+    simVib: document.getElementById('simVib'),
+    simVibLabel: document.getElementById('simVibLabel'),
     btnSimulatePacket: document.getElementById('btnSimulatePacket'),
     btnToggleAutoSim: document.getElementById('btnToggleAutoSim'),
     autoSimIcon: document.getElementById('autoSimIcon'),
@@ -176,6 +208,16 @@
             borderWidth: 2,
             tension: 0.35,
             fill: true,
+            yAxisID: 'yRain'
+          },
+          {
+            label: 'Soil Moisture (%)',
+            data: [],
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 2,
+            tension: 0.35,
+            fill: false,
             yAxisID: 'yRain'
           }
         ]
@@ -324,6 +366,28 @@
       el.floodRiskBadge.className = 'status-badge badge-gray';
     }
 
+    // 3.5 Soil Moisture (0 to 4095 12-Bit ADC Scale)
+    const soil = Math.max(0, Math.min(100, Number(data.soilMoisture) || 0));
+    const soilRaw = data.soilRaw !== undefined ? Number(data.soilRaw) : Math.round(3200 - (soil / 100) * (3200 - 1400));
+    if (el.soilValue) el.soilValue.textContent = soil.toFixed(1);
+    if (el.soilProgressBar) el.soilProgressBar.style.width = `${soil}%`;
+    if (el.soilRawAdc) el.soilRawAdc.textContent = `ADC: ${soilRaw} / 4095`;
+    if (el.soilStatusBadge) {
+      el.soilStatusBadge.textContent = data.soilStatus || (soil < 20 ? 'Very Dry' : soil > 80 ? 'Waterlogged' : 'Optimal Moisture');
+      if (soil < 20) {
+        el.soilStatusBadge.className = 'status-badge badge-red';
+      } else if (soil < 35) {
+        el.soilStatusBadge.className = 'status-badge badge-amber';
+      } else if (soil > 85) {
+        el.soilStatusBadge.className = 'status-badge badge-blue';
+      } else {
+        el.soilStatusBadge.className = 'status-badge badge-green';
+      }
+    }
+    if (el.soilHealthText) {
+      el.soilHealthText.textContent = data.soilHealth || (soil < 25 ? 'Water Required: Soil is dry' : soil > 85 ? 'Over-saturated: Stop watering' : 'Balanced Hydration: Optimal condition');
+    }
+
     // 4. LDR Ambient Light
     const ldr = Math.max(0, Math.min(100, Number(data.ldrValue) || 0));
     el.ldrValue.textContent = ldr.toFixed(1);
@@ -369,6 +433,86 @@
       el.tamperAlarmStatus.style.color = 'var(--text-secondary)';
     }
 
+    // 5.5 MPU-6050 6-Axis Motion & Vibration
+    const pitch = Number(data.pitch) || 0;
+    const roll = Number(data.roll) || 0;
+    const ax = Number(data.accelX) || 0;
+    const ay = Number(data.accelY) || 0;
+    const az = data.accelZ !== undefined ? Number(data.accelZ) : 1.0;
+    const totalG = Number(data.totalG) || Math.sqrt(ax * ax + ay * ay + az * az);
+    const mpuConnected = Boolean(data.mpuConnected);
+    const vib = data.vibration !== undefined ? Number(data.vibration) : Math.abs(totalG - 1.0);
+    const vibPct = data.vibrationPct !== undefined ? Number(data.vibrationPct) : Math.min(100, (vib / 1.5) * 100);
+    const gyroMag = data.gyroMag !== undefined ? Number(data.gyroMag) : 0.0;
+
+    if (el.mpuPitchVal) el.mpuPitchVal.textContent = `${pitch.toFixed(1)}°`;
+    if (el.mpuRollVal) el.mpuRollVal.textContent = `${roll.toFixed(1)}°`;
+    if (el.accelXVal) el.accelXVal.textContent = `${ax.toFixed(2)} g`;
+    if (el.accelYVal) el.accelYVal.textContent = `${ay.toFixed(2)} g`;
+    if (el.accelZVal) el.accelZVal.textContent = `${az.toFixed(2)} g`;
+    if (el.totalGVal) el.totalGVal.textContent = `${totalG.toFixed(2)} g`;
+
+    // Render Vibration Metrics
+    if (el.vibrationVal) el.vibrationVal.textContent = `${vib.toFixed(2)} g`;
+    if (el.vibrationProgressBar) el.vibrationProgressBar.style.width = `${Math.max(2, Math.min(100, vibPct))}%`;
+    if (el.gyroMagVal) el.gyroMagVal.textContent = `${gyroMag.toFixed(1)} °/s`;
+    if (el.vibrationStatusBadge) {
+      el.vibrationStatusBadge.textContent = data.vibrationStatus || (vib >= 0.60 ? 'Severe Shock' : vib >= 0.25 ? 'Moderate Vib' : 'Smooth / Stable');
+      if (vib >= 0.60) {
+        el.vibrationStatusBadge.className = 'status-badge badge-red';
+        triggerAlarmBanner('EXCESSIVE VIBRATION / SHOCK ALERT', `Vibration reached ${vib.toFixed(2)}g! Mechanical disturbance detected.`);
+        playAlertBeep(1100, 0.4, 'sawtooth');
+      } else if (vib >= 0.25) {
+        el.vibrationStatusBadge.className = 'status-badge badge-amber';
+      } else {
+        el.vibrationStatusBadge.className = 'status-badge badge-green';
+      }
+    }
+
+    // Animate Horizon levels
+    if (el.mpuPitchLevel) {
+      const pitchPct = Math.max(-50, Math.min(50, (pitch / 90) * 50));
+      if (pitchPct >= 0) {
+        el.mpuPitchLevel.style.left = '50%';
+        el.mpuPitchLevel.style.width = `${pitchPct}%`;
+      } else {
+        el.mpuPitchLevel.style.left = `${50 + pitchPct}%`;
+        el.mpuPitchLevel.style.width = `${Math.abs(pitchPct)}%`;
+      }
+    }
+    if (el.mpuRollLevel) {
+      const rollPct = Math.max(-50, Math.min(50, (roll / 180) * 50));
+      if (rollPct >= 0) {
+        el.mpuRollLevel.style.left = '50%';
+        el.mpuRollLevel.style.width = `${rollPct}%`;
+      } else {
+        el.mpuRollLevel.style.left = `${50 + rollPct}%`;
+        el.mpuRollLevel.style.width = `${Math.abs(rollPct)}%`;
+      }
+    }
+
+    // Dynamic tilt bubble offset from MPU
+    if (mpuConnected && el.tiltBubble) {
+      const bubbleX = Math.max(-20, Math.min(20, (roll / 45) * 20));
+      const bubbleY = Math.max(-20, Math.min(20, (-pitch / 45) * 20));
+      el.tiltBubble.style.transform = `translate(${bubbleX}px, ${bubbleY}px)`;
+    }
+
+    if (el.mpuStatusBadge) {
+      if (mpuConnected) {
+        el.mpuStatusBadge.textContent = 'MPU Active';
+        el.mpuStatusBadge.className = 'status-badge badge-green';
+      } else {
+        el.mpuStatusBadge.textContent = 'Standby';
+        el.mpuStatusBadge.className = 'status-badge badge-gray';
+      }
+    }
+
+    if (el.motionStatusBadge) {
+      el.motionStatusBadge.textContent = data.motionStatus || (Math.abs(pitch) > 25 || Math.abs(roll) > 25 ? 'Incline Warning' : 'Level Horizon');
+      el.motionStatusBadge.className = (Math.abs(pitch) > 25 || Math.abs(roll) > 25 || vib >= 0.60) ? 'status-badge badge-red' : 'status-badge badge-cyan';
+    }
+
     // 6. Voltage & Battery Health
     const volts = Number(data.voltage) || 0;
     el.voltageValue.textContent = volts.toFixed(2);
@@ -393,7 +537,7 @@
 
     // 7. Update Charts
     const timeLabel = data.timeFormatted || new Date().toLocaleTimeString([], { hour12: false });
-    appendChartData(timeLabel, tempC, rain, ldr, volts);
+    appendChartData(timeLabel, tempC, rain, soil, ldr, volts);
 
     // 8. Update Table
     prependTableRow(data);
@@ -437,22 +581,28 @@
     }
   }
 
-  function appendChartData(timeLabel, temp, rain, ldr, volt) {
+  function appendChartData(timeLabel, temp, rain, soil, ldr, volt) {
     if (!chartTempRain || !chartLightVolt) return;
 
-    // Chart 1
+    // Chart 1 (Temp, Rain, Soil)
     chartTempRain.data.labels.push(timeLabel);
     chartTempRain.data.datasets[0].data.push(temp);
     chartTempRain.data.datasets[1].data.push(rain);
+    if (chartTempRain.data.datasets[2]) {
+      chartTempRain.data.datasets[2].data.push(soil);
+    }
 
     if (chartTempRain.data.labels.length > maxChartPoints) {
       chartTempRain.data.labels.shift();
       chartTempRain.data.datasets[0].data.shift();
       chartTempRain.data.datasets[1].data.shift();
+      if (chartTempRain.data.datasets[2]) {
+        chartTempRain.data.datasets[2].data.shift();
+      }
     }
     chartTempRain.update('none');
 
-    // Chart 2
+    // Chart 2 (Light, Voltage)
     chartLightVolt.data.labels.push(timeLabel);
     chartLightVolt.data.datasets[0].data.push(ldr);
     chartLightVolt.data.datasets[1].data.push(volt);
@@ -475,14 +625,24 @@
       ? `<span class="status-badge badge-red">TILTED</span>`
       : `<span class="status-badge badge-green">LEVEL</span>`;
 
+    const soilPct = Number(data.soilMoisture !== undefined ? data.soilMoisture : 0).toFixed(1);
+    const soilRaw = data.soilRaw !== undefined ? data.soilRaw : Math.round(3200 - (Number(data.soilMoisture || 0) / 100) * (3200 - 1400));
+    const soilCell = `<span class="font-mono" style="color:#34d399;" title="Raw ADC: ${soilRaw} / 4095 levels (12-bit ADC)">${soilPct}% <small style="color:#94a3b8;">(${soilRaw})</small></span>`;
+
+    const vibVal = data.vibration !== undefined ? Number(data.vibration).toFixed(2) : '0.00';
+    const mpuOrientation = (data.mpuConnected || data.pitch !== undefined)
+      ? `<span class="font-mono" style="color:#f472b6;">P:${Number(data.pitch || 0).toFixed(1)}° R:${Number(data.roll || 0).toFixed(1)}° <span style="color:#38bdf8;" title="Dynamic vibration magnitude">~${vibVal}g</span></span>`
+      : `<span style="color:#64748b;">Standby</span>`;
+
     tr.innerHTML = `
       <td>${data.timeFormatted || new Date().toLocaleTimeString()}</td>
       <td>${data.deviceId || 'esp32'}</td>
       <td>${Number(data.temperature).toFixed(1)} °C</td>
       <td>${Number(data.rainLevel).toFixed(1)}%</td>
-      <td>${data.rainStatus || '--'}</td>
+      <td>${soilCell}</td>
       <td>${Number(data.ldrValue).toFixed(1)}%</td>
       <td>${tiltBadge}</td>
+      <td>${mpuOrientation}</td>
       <td>${Number(data.voltage).toFixed(2)} V</td>
       <td>${data.batteryPercent || 80}%</td>
       <td>${data.rssi || -60} dBm</td>
@@ -578,12 +738,36 @@
     el.simRain.addEventListener('input', () => {
       el.simRainLabel.textContent = `${el.simRain.value} %`;
     });
+    if (el.simSoil) {
+      el.simSoil.addEventListener('input', () => {
+        const sVal = parseFloat(el.simSoil.value);
+        const sRaw = Math.round(3200 - (sVal / 100.0) * (3200 - 1400));
+        el.simSoilLabel.textContent = `${sVal.toFixed(1)} % (ADC: ${sRaw})`;
+      });
+    }
     el.simLdr.addEventListener('input', () => {
       el.simLdrLabel.textContent = `${el.simLdr.value} %`;
     });
     el.simVolt.addEventListener('input', () => {
       el.simVoltLabel.textContent = `${el.simVolt.value} V`;
     });
+    if (el.simPitch) {
+      el.simPitch.addEventListener('input', () => {
+        el.simPitchLabel.textContent = `${el.simPitch.value} °`;
+      });
+    }
+    if (el.simRoll) {
+      el.simRoll.addEventListener('input', () => {
+        el.simRollLabel.textContent = `${el.simRoll.value} °`;
+      });
+    }
+    if (el.simVib) {
+      el.simVib.addEventListener('input', () => {
+        const vVal = parseFloat(el.simVib.value);
+        const vStatus = vVal >= 0.60 ? 'Shock Alert' : vVal >= 0.25 ? 'Moderate' : 'Smooth';
+        el.simVibLabel.textContent = `${vVal.toFixed(2)} g (${vStatus})`;
+      });
+    }
     el.simTiltToggle.addEventListener('change', () => {
       el.simTiltStateLabel.textContent = el.simTiltToggle.checked ? '1 (TILTED)' : '0 (Level)';
     });
@@ -612,6 +796,30 @@
           el.simRain.value = Math.max(0, Math.min(100, Math.round(currentR + (Math.random() * 6 - 3))));
           el.simRainLabel.textContent = `${el.simRain.value} %`;
 
+          if (el.simSoil) {
+            const currentS = parseFloat(el.simSoil.value);
+            el.simSoil.value = Math.max(0, Math.min(100, Math.round(currentS + (Math.random() * 4 - 2))));
+            const sRaw = Math.round(3200 - (parseFloat(el.simSoil.value) / 100.0) * (3200 - 1400));
+            el.simSoilLabel.textContent = `${parseFloat(el.simSoil.value).toFixed(1)} % (ADC: ${sRaw})`;
+          }
+
+          if (el.simPitch) {
+            const currentP = parseFloat(el.simPitch.value);
+            el.simPitch.value = Math.max(-90, Math.min(90, Math.round(currentP + (Math.random() * 4 - 2))));
+            el.simPitchLabel.textContent = `${el.simPitch.value} °`;
+          }
+          if (el.simRoll) {
+            const currentRo = parseFloat(el.simRoll.value);
+            el.simRoll.value = Math.max(-180, Math.min(180, Math.round(currentRo + (Math.random() * 6 - 3))));
+            el.simRollLabel.textContent = `${el.simRoll.value} °`;
+          }
+          if (el.simVib) {
+            const currentV = Math.random() < 0.2 ? (0.3 + Math.random() * 0.5) : (0.02 + Math.random() * 0.05);
+            el.simVib.value = currentV.toFixed(2);
+            const vStatus = currentV >= 0.60 ? 'Shock Alert' : currentV >= 0.25 ? 'Moderate' : 'Smooth';
+            el.simVibLabel.textContent = `${currentV.toFixed(2)} g (${vStatus})`;
+          }
+
           sendSimulatedPacket();
         }, 3000);
         el.autoSimIcon.className = 'fa-solid fa-pause';
@@ -621,16 +829,37 @@
   }
 
   async function sendSimulatedPacket() {
+    const pVal = el.simPitch ? parseFloat(el.simPitch.value) : 0;
+    const rVal = el.simRoll ? parseFloat(el.simRoll.value) : 0;
+    const sVal = el.simSoil ? parseFloat(el.simSoil.value) : 50.0;
+    const sRaw = Math.round(3200 - (sVal / 100.0) * (3200 - 1400));
+    const vVal = el.simVib ? parseFloat(el.simVib.value) : 0.02;
+
     const payload = {
       deviceId: 'esp32-simulated',
       temperature: parseFloat(el.simTemp.value),
       rainLevel: parseFloat(el.simRain.value),
-      rainRaw: Math.round(4095 - (parseFloat(el.simRain.value) * 40.95)),
+      rainRaw: Math.round(parseFloat(el.simRain.value) * 28.0),
+      soilMoisture: sVal,
+      soilRaw: sRaw,
+      soilMaxRaw: 4095,
       ldrValue: parseFloat(el.simLdr.value),
-      ldrRaw: Math.round(parseFloat(el.simLdr.value) * 40.95),
+      ldrRaw: Math.round(parseFloat(el.simLdr.value) * 38.0),
       tiltState: el.simTiltToggle.checked ? 1 : 0,
       voltage: parseFloat(el.simVolt.value),
-      rssi: -55 - Math.floor(Math.random() * 10)
+      rssi: -55 - Math.floor(Math.random() * 10),
+      mpuConnected: true,
+      pitch: pVal,
+      roll: rVal,
+      vibration: vVal,
+      vibrationPct: Math.min(100, Math.round((vVal / 1.5) * 100)),
+      accelX: parseFloat((-Math.sin((pVal * Math.PI) / 180)).toFixed(2)),
+      accelY: parseFloat((Math.sin((rVal * Math.PI) / 180)).toFixed(2)),
+      accelZ: parseFloat((Math.cos((pVal * Math.PI) / 180)).toFixed(2)),
+      gyroX: parseFloat((Math.random() * 2 - 1).toFixed(1)),
+      gyroY: parseFloat((Math.random() * 2 - 1).toFixed(1)),
+      gyroZ: parseFloat((Math.random() * 2 - 1).toFixed(1)),
+      gyroMag: parseFloat((Math.random() * 4 + 1).toFixed(1))
     };
 
     try {
@@ -656,14 +885,20 @@
       return;
     }
 
-    const headers = ['Timestamp', 'Device ID', 'Temperature (C)', 'Rain Level (%)', 'LDR Level (%)', 'Tilt State', 'Voltage (V)', 'Battery (%)', 'RSSI (dBm)'];
+    const headers = ['Timestamp', 'Device ID', 'Temperature (C)', 'Rain Level (%)', 'Soil Moisture (%)', 'Soil Raw (0-4095)', 'LDR Level (%)', 'Tilt State', 'Pitch (deg)', 'Roll (deg)', 'Vibration (g)', 'Total G', 'Voltage (V)', 'Battery (%)', 'RSSI (dBm)'];
     const rows = historicalRecords.map(r => [
       r.timestamp || new Date().toISOString(),
       r.deviceId || 'esp32-node-01',
       r.temperature,
       r.rainLevel,
+      r.soilMoisture !== undefined ? r.soilMoisture : '',
+      r.soilRaw !== undefined ? r.soilRaw : '',
       r.ldrValue,
       r.tiltState,
+      r.pitch !== undefined ? r.pitch : 0.0,
+      r.roll !== undefined ? r.roll : 0.0,
+      r.vibration !== undefined ? r.vibration : 0.0,
+      r.totalG !== undefined ? r.totalG : 1.0,
       r.voltage,
       r.batteryPercent,
       r.rssi

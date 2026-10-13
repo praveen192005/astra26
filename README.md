@@ -9,8 +9,10 @@ A full-stack Internet of Things (IoT) solution featuring an ESP32 multi-sensor n
 | Sensor / Module | Sensor Pin | ESP32 Pin | Notes & Resistor Requirements |
 |---|---|---|---|
 | **DS18B20 Temp Probe** | VCC (Red)<br>GND (Black)<br>DATA (Yellow) | **3.3V**<br>**GND**<br>**GPIO 4** | **Requires 4.7 kΩ pull-up resistor** between 3.3V & DATA. |
-| **Rain / Water Level** | VCC / GND / AO | **3.3V** / **GND** / **GPIO 34** | Uses **ADC1** (compatible with WiFi). Inverted ADC scale. |
-| **LDR Light Sensor** | VCC / GND / AO | **3.3V** / **GND** / **GPIO 35** | Uses **ADC1** (compatible with WiFi). Reads ambient lux. |
+| **Rain / Water Level** | VCC / GND / AO | **3.3V** / **GND** / **GPIO 34** | Uses **ADC1** (compatible with WiFi). Direct scale for water level probes (0=dry, rises with water); inverted scale option available. |
+| **Soil Moisture Sensor** | VCC / GND / AO | **3.3V** / **GND** / **GPIO 33** | Uses **ADC1** (compatible with WiFi). **12-bit ADC provides 4096 discrete levels (Range: 0 to 4095)**. Capacitive v1.2 (dry ~3200-3500 ADC, wet ~1200-1400 ADC). |
+| **LDR Light Sensor** | VCC / GND / AO | **3.3V** / **GND** / **GPIO 35** | Uses **ADC1** (compatible with WiFi). Configurable direct & inverted scaling. |
+| **MPU-6050 6-Axis IMU** | VCC / GND<br>SDA / SCL | **3.3V** / **GND**<br>**GPIO 21** / **GPIO 22** | Hardware I2C bus (0x68). Measures live Angles (Pitch, Roll in degrees), dynamic Vibrations (g), and rotational angular speed (°/s). |
 | **Tilt Switch (SW-520D)** | Signal / GND | **GPIO 27** / **GND** | Internal pull-up enabled in software. Detects incline/tamper. |
 | **DC Voltage Divider (0-25V)** | VCC (+) / GND (-)<br>Signal (S) | **Battery +** / **GND**<br>**GPIO 32** | 5:1 scale factor. **ESP32 and battery must share common GND!** |
 | **ESP32-CAM (OV2640)** | Standalone board | AI-Thinker Pinout | Periodically uploads live JPEG snapshots to web dashboard. |
@@ -142,10 +144,12 @@ const char* SERVER_URL    = "https://astra26.onrender.com/api/telemetry";
 
 - 💧 **Waterproof Temperature (DS18B20):** °C/°F toggle, min/max session memory, thermal gauge.
 - 🌧️ **Rain & Water Level:** 0-100% fluid immersion animation, raw ADC readout, flood alert threshold.
+- 🌱 **Soil Moisture Sensor (0-4095 ADC Scale):** Real-time soil hydration %, raw 12-bit ADC tracking (0 to 4095 discrete levels, 4096 steps), and soil condition irrigation guides.
 - ☀️ **LDR Ambient Light:** Dynamic sun/moon glow indicator, Lux estimate, light condition status.
 - 🔄 **Gyroscopic Tilt Sensor:** Physical 3D visual bubble that tilts when triggered, with audible tamper alarm.
+- 🧭 **MPU-6050 Angles & Vibration Monitoring:** Live Pitch & Roll inclination angle displays with artificial horizon level bars, dynamic vibration shock amplitude ($g$), gyro angular rate ($^\circ/\text{s}$), and automatic shock alerts.
 - 🔋 **DC Voltage & Battery Health:** Smart battery profile detection (12V battery / 3.7V Li-Ion / 5V rail), percentage bar.
 - 📷 **ESP32-CAM Live Viewport:** Real-time JPEG snapshot viewer with timestamp and expanded modal.
 - 📈 **Real-Time Analytics:** Chart.js dual time-series graphs with smooth live data feeds.
 - 📜 **Telemetry Ledger:** Historical audit table with live row injection and CSV export.
-- 🎮 **In-Browser Hardware Simulator:** Allows testing all features and alarms right from your browser.
+- 🎮 **In-Browser Hardware Simulator:** Allows testing all features, soil levels, and vibration alarms right from your browser.

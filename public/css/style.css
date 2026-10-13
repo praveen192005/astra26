@@ -494,11 +494,17 @@ body {
 .card-rain::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
 .icon-rain { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
 
+.card-soil::before { background: linear-gradient(90deg, #10b981, #059669); }
+.icon-soil { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+
 .card-ldr::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
 .icon-ldr { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
 
 .card-tilt::before { background: linear-gradient(90deg, #10b981, #00e676); }
 .icon-tilt { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+
+.card-mpu::before { background: linear-gradient(90deg, #ec4899, #8b5cf6); }
+.icon-mpu { background: rgba(236, 72, 153, 0.12); color: #f472b6; }
 
 .card-volt::before { background: linear-gradient(90deg, #8b5cf6, #a855f7); }
 .icon-volt { background: rgba(139, 92, 246, 0.12); color: #c084fc; }
@@ -569,8 +575,24 @@ body {
 .progress-rain {
   background: linear-gradient(90deg, #3b82f6, #00f2fe);
 }
+.progress-soil {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
 .progress-ldr {
   background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.soil-health-note {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #a7f3d0;
 }
 
 /* Status Badges */
@@ -711,6 +733,184 @@ body {
 
 .tilt-subtext {
   font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   MPU-6050 6-AXIS IMU VISUALIZERS
+   ===================================================================== */
+.mpu-visual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0 16px;
+}
+
+.mpu-angle-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mpu-angle-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.mpu-gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mpu-angle-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.mpu-horizon-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.mpu-horizon-level {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #ec4899, #8b5cf6);
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease, left 0.3s ease;
+}
+
+.mpu-axis-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.axis-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.axis-tag {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.axis-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+/* Vibration & Dynamics Visualizer */
+.mpu-vibration-container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vib-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vib-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vib-label i {
+  color: #ec4899;
+}
+
+.vib-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vib-val-box {
+  display: flex;
+  flex-direction: column;
+  min-width: 68px;
+}
+
+.vib-num {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f472b6;
+  line-height: 1.1;
+}
+
+.vib-unit {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vib-track-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vib-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.vib-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #f59e0b 60%, #ef4444 95%);
+  border-radius: var(--radius-pill);
+  transition: width 0.35s ease, background 0.35s ease;
+}
+
+.vib-sub-metric {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
   color: var(--text-muted);
 }
 
