@@ -166,22 +166,26 @@ void uploadPhoto() {
       fb = NULL;
 
       HTTPClient http;
+      WiFiClientSecure *secureClient = nullptr;
+      WiFiClient *plainClient = nullptr;
       bool isHttps = String(SERVER_UPLOAD_URL).startsWith("https");
 
       if (isHttps) {
-        WiFiClientSecure *client = new WiFiClientSecure;
-        if (client) {
-          client->setInsecure();
-          http.begin(*client, SERVER_UPLOAD_URL);
+        secureClient = new WiFiClientSecure;
+        if (secureClient) {
+          secureClient->setInsecure();
+          http.begin(*secureClient, SERVER_UPLOAD_URL);
         }
       } else {
-        WiFiClient client;
-        http.begin(client, SERVER_UPLOAD_URL);
+        plainClient = new WiFiClient;
+        if (plainClient) {
+          http.begin(*plainClient, SERVER_UPLOAD_URL);
+        }
       }
 
       http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
       http.addHeader("Content-Length", String(totalLen));
-      http.setTimeout(8000);
+      http.setTimeout(15000); // 15 second timeout for Render cloud
 
       digitalWrite(STATUS_LED_PIN, LOW); // Status LED ON
       int httpCode = http.POST(buffer, totalLen);
@@ -190,12 +194,22 @@ void uploadPhoto() {
       free(buffer);
 
       if (httpCode > 0) {
-        Serial.printf("[HTTP] Image Upload Success! Response Code: %d\n", httpCode);
+        Serial.printf("[HTTP] Image Upload Success! Response Code: %d (Free Heap: %u bytes)\n", httpCode, ESP.getFreeHeap());
       } else {
-        Serial.printf("[HTTP] Image Upload Failed: %s\n", http.errorToString(httpCode).c_str());
+        Serial.printf("[HTTP] Image Upload Failed: %s (Free Heap: %u bytes)\n", http.errorToString(httpCode).c_str(), ESP.getFreeHeap());
       }
 
       http.end();
+
+      // Clean up client to eliminate heap memory leak
+      if (secureClient) {
+        delete secureClient;
+        secureClient = nullptr;
+      }
+      if (plainClient) {
+        delete plainClient;
+        plainClient = nullptr;
+      }
     } else {
       Serial.println("[Error] Memory allocation failed for multipart payload");
       esp_camera_fb_return(fb);

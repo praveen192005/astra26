@@ -448,10 +448,26 @@ async def upload_camera_frame(
 
 @app.get("/api/camera/latest")
 async def get_latest_camera():
-    """Serve the latest camera image, or default fallback preview."""
-    if os.path.exists(CAMERA_FILE_PATH) and latest_camera_info.get("available"):
+    """Serve the latest camera image, or default standby preview."""
+    if os.path.exists(CAMERA_FILE_PATH) and os.path.getsize(CAMERA_FILE_PATH) > 0:
         return FileResponse(CAMERA_FILE_PATH, media_type="image/jpeg")
+    
+    standby_path = os.path.join(ASSETS_DIR, "camera_standby.jpg")
+    if os.path.exists(standby_path):
+        return FileResponse(standby_path, media_type="image/jpeg")
+        
     return JSONResponse(status_code=404, content={"status": "not_found", "message": "No camera frame uploaded yet"})
+
+
+@app.get("/api/camera/info")
+async def get_camera_info():
+    """Return JSON metadata about camera frame status."""
+    has_file = os.path.exists(CAMERA_FILE_PATH) and os.path.getsize(CAMERA_FILE_PATH) > 0
+    return {
+        "status": "success",
+        "available": bool(latest_camera_info.get("available") or has_file),
+        "camera": latest_camera_info
+    }
 
 
 @app.get("/api/status")

@@ -672,6 +672,18 @@
     el.expandedCamTime.textContent = `Timestamp: ${timeStr}`;
   }
 
+  // Gracefully fallback to standby image if frame load encounters an issue
+  el.cameraImageFeed.addEventListener('error', () => {
+    if (!el.cameraImageFeed.src.includes('camera_standby.jpg')) {
+      el.cameraImageFeed.src = 'assets/camera_standby.jpg';
+    }
+  });
+  el.expandedCamImage.addEventListener('error', () => {
+    if (!el.expandedCamImage.src.includes('camera_standby.jpg')) {
+      el.expandedCamImage.src = 'assets/camera_standby.jpg';
+    }
+  });
+
   // --- SERVER-SENT EVENTS (SSE) STREAMING ---
   function initEventSource() {
     const sse = new EventSource('/api/events');
@@ -703,10 +715,39 @@
     };
 
     sse.onerror = (err) => {
-      console.warn('[SSE] Connection interrupted, auto-reconnecting...', err);
-      el.deviceStatusPill.className = 'status-pill status-offline';
-      el.deviceStatusText.textContent = 'Reconnecting...';
+      console.warn('[SSE] Connection interrupted, polling fallback active...', err);
+      // Keep UI functional during reconnection
+      if (packetCounter > 0) {
+        el.deviceStatusPill.className = 'status-pill status-standby';
+        el.deviceStatusText.textContent = 'Live Sync (Polling)';
+      }
     };
+  }
+
+  // --- RESILIENT POLLING FALLBACK ---
+  // Guarantees data updates even if cloud proxy buffers or terminates SSE connections
+  let lastReceivedTimestamp = null;
+  function startFallbackPolling() {
+    setInterval(async () => {
+      try {
+        const res = await fetch(`/api/telemetry/latest?_nc=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.data) {
+            // Only update dashboard if this is a fresh packet or initial render
+            if (json.data.timestamp !== lastReceivedTimestamp) {
+              lastReceivedTimestamp = json.data.timestamp;
+              updateDashboard(json.data);
+            }
+          }
+          if (json && json.camera && json.camera.available) {
+            updateCameraFeed(json.camera);
+          }
+        }
+      } catch (e) {
+        console.debug('[Sync] Polling cycle retry:', e);
+      }
+    }, 3000); // 3-second heartbeat sync
   }
 
   // --- INITIAL DATA FETCH ---
@@ -716,12 +757,23 @@
       const json = await res.json();
       if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
         json.data.forEach(item => updateDashboard(item));
+        lastReceivedTimestamp = json.data[json.data.length - 1].timestamp;
       } else {
         // Fetch latest default reading
-        const latestRes = await fetch('/api/telemetry/latest');
+        const latestRes = await fetch(`/api/telemetry/latest?_nc=${Date.now()}`);
         const latestJson = await latestRes.json();
         if (latestJson.data) {
+          lastReceivedTimestamp = latestJson.data.timestamp;
           updateDashboard(latestJson.data);
+        }
+      }
+
+      // Check if camera is available
+      const camRes = await fetch(`/api/camera/info?_nc=${Date.now()}`).catch(() => null);
+      if (camRes && camRes.ok) {
+        const camJson = await camRes.json();
+        if (camJson.available) {
+          updateCameraFeed(camJson.camera);
         }
       }
     } catch (e) {
@@ -993,6 +1045,7 @@
     setupUIHandlers();
     loadInitialData();
     initEventSource();
+    startFallbackPolling();
   });
 
 })();

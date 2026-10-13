@@ -514,21 +514,25 @@ void loop() {
     // Transmit over HTTP POST to Cloud / Local Server
     if (WiFi.status() == WL_CONNECTED) {
       HTTPClient http;
+      WiFiClientSecure *secureClient = nullptr;
+      WiFiClient *plainClient = nullptr;
       
       // Determine if HTTPS or HTTP
       if (String(SERVER_URL).startsWith("https")) {
-        WiFiClientSecure *client = new WiFiClientSecure;
-        if (client) {
-          client->setInsecure(); // Accept Render's TLS certificate without hardcoding root CA
-          http.begin(*client, SERVER_URL);
+        secureClient = new WiFiClientSecure;
+        if (secureClient) {
+          secureClient->setInsecure(); // Accept Render's TLS certificate without hardcoding root CA
+          http.begin(*secureClient, SERVER_URL);
         }
       } else {
-        WiFiClient client;
-        http.begin(client, SERVER_URL);
+        plainClient = new WiFiClient;
+        if (plainClient) {
+          http.begin(*plainClient, SERVER_URL);
+        }
       }
 
       http.addHeader("Content-Type", "application/json");
-      http.setTimeout(4000); // 4 second timeout
+      http.setTimeout(10000); // 10 second timeout for Render cloud
 
       // Quick LED blink to indicate transmission
       digitalWrite(PIN_LED_STATUS, LOW);
@@ -536,15 +540,25 @@ void loop() {
       digitalWrite(PIN_LED_STATUS, HIGH);
 
       if (httpResponseCode > 0) {
-        Serial.printf("[HTTP] POST Response Code: %d\n", httpResponseCode);
+        Serial.printf("[HTTP] POST Response Code: %d (Free Heap: %u bytes)\n", httpResponseCode, ESP.getFreeHeap());
         if (httpResponseCode == 200 || httpResponseCode == 201) {
           String response = http.getString();
           Serial.println("[HTTP] Server Response: " + response);
         }
       } else {
-        Serial.printf("[HTTP] POST Failed! Error: %s\n", http.errorToString(httpResponseCode).c_str());
+        Serial.printf("[HTTP] POST Failed! Error: %s (Free Heap: %u bytes)\n", http.errorToString(httpResponseCode).c_str(), ESP.getFreeHeap());
       }
       http.end();
+
+      // Clean up client to eliminate heap memory leak
+      if (secureClient) {
+        delete secureClient;
+        secureClient = nullptr;
+      }
+      if (plainClient) {
+        delete plainClient;
+        plainClient = nullptr;
+      }
     } else {
       Serial.println("[HTTP] WiFi not connected. Skipping telemetry upload.");
     }
