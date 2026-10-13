@@ -74,20 +74,26 @@ void setupCamera() {
   config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  
+  // 10MHz XCLK stabilizes DMA transfers and cures "cam_hal: FB-OVF" clock jitter
+  config.xclk_freq_hz = 10000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode    = CAMERA_GRAB_LATEST; // Drops stale frames, prevents FIFO overflow
 
-  // Frame resolution: VGA (640x480) or SVGA (800x600) for fast cloud transfer
+  // Frame resolution: VGA (640x480) with PSRAM, or QVGA without PSRAM
   if (psramFound()) {
     config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 12; // 0-63, lower means higher quality
+    config.jpeg_quality = 14; // 10-63 (14 is crisp quality ~30KB, optimal for WiFi transfer)
     config.fb_count     = 2;
-    Serial.println("[Camera] PSRAM detected! High performance buffer allocated.");
+    config.fb_location  = CAMERA_FB_IN_PSRAM;
+    Serial.println("[Camera] PSRAM detected! Dual frame buffers allocated in PSRAM.");
   } else {
     config.frame_size   = FRAMESIZE_QVGA;
-    config.jpeg_quality = 15;
+    config.jpeg_quality = 16;
     config.fb_count     = 1;
-    Serial.println("[Camera] Warning: PSRAM not found. Using QVGA resolution.");
+    config.fb_location  = CAMERA_FB_IN_DRAM;
+    Serial.println("[Camera] Notice: PSRAM not enabled! (Enable PSRAM in Arduino IDE: Tools -> PSRAM -> Enabled)");
+    Serial.println("[Camera] Falling back to QVGA resolution in internal DRAM.");
   }
 
   // Camera init
@@ -96,39 +102,40 @@ void setupCamera() {
     Serial.printf("[Camera] Camera initialization failed with error 0x%x\n", err);
     return;
   }
+
+  // Optimize sensor orientation
+  sensor_t *s = esp_camera_sensor_get();
+  if (s) {
+    s->set_vflip(s, 1);       // Flip vertically if mounted inverted
+    s->set_brightness(s, 1);  // Slight clarity boost
+    s->set_saturation(s, 0);  // Natural saturation
+  }
+
   Serial.println("[Camera] OV2640 camera sensor initialized successfully!");
 }
 
 void uploadPhoto() {
   Serial.println("[Camera] Capturing snapshot frame...");
+
+  // 1. Flush any stale frame lingering in DMA buffer during idle interval (fixes FB-OVF)
+  camera_fb_t *stale_fb = esp_camera_fb_get();
+  if (stale_fb) {
+    esp_camera_fb_return(stale_fb);
+  }
+
+  // 2. Capture fresh current frame
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("[Camera] Frame capture failed!");
     return;
   }
 
-  Serial.printf("[Camera] Frame captured: %u bytes\n", fb->len);
+  Serial.printf("[Camera] Fresh frame captured: %u bytes\n", fb->len);
 
   if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    bool isHttps = String(SERVER_UPLOAD_URL).startsWith("https");
-
-    if (isHttps) {
-      WiFiClientSecure *client = new WiFiClientSecure;
-      if (client) {
-        client->setInsecure();
-        http.begin(*client, SERVER_UPLOAD_URL);
-      }
-    } else {
-      WiFiClient client;
-      http.begin(client, SERVER_UPLOAD_URL);
-    }
-
     String boundary = "----WebKitFormBoundaryAstra26ESP32";
-    http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
-    http.setTimeout(8000);
 
-    // Build multipart body header
+    // Build multipart body headers
     String head = "--" + boundary + "\r\n";
     head += "Content-Disposition: form-data; name=\"deviceId\"\r\n\r\n";
     head += String(CAM_DEVICE_ID) + "\r\n";
@@ -137,39 +144,68 @@ void uploadPhoto() {
     head += "Content-Type: image/jpeg\r\n\r\n";
 
     String tail = "\r\n--" + boundary + "--\r\n";
-
     uint32_t totalLen = head.length() + fb->len + tail.length();
-    http.addHeader("Content-Length", String(totalLen));
 
-    // Allocate continuous buffer or send payload
-    uint8_t *buffer = (uint8_t*)malloc(totalLen);
+    // Allocate multipart payload buffer (use PSRAM if available to prevent DRAM exhaustion)
+    uint8_t *buffer = NULL;
+    if (psramFound()) {
+      buffer = (uint8_t*)ps_malloc(totalLen);
+    }
+    if (!buffer) {
+      buffer = (uint8_t*)malloc(totalLen);
+    }
+
     if (buffer) {
       memcpy(buffer, head.c_str(), head.length());
       memcpy(buffer + head.length(), fb->buf, fb->len);
       memcpy(buffer + head.length() + fb->len, tail.c_str(), tail.length());
 
-      digitalWrite(STATUS_LED_PIN, LOW); // LED ON
+      // Release hardware camera frame buffer IMMEDIATELY after memory copy!
+      // This frees the camera DMA engine before network transfer begins, eliminating FB-OVF!
+      esp_camera_fb_return(fb);
+      fb = NULL;
+
+      HTTPClient http;
+      bool isHttps = String(SERVER_UPLOAD_URL).startsWith("https");
+
+      if (isHttps) {
+        WiFiClientSecure *client = new WiFiClientSecure;
+        if (client) {
+          client->setInsecure();
+          http.begin(*client, SERVER_UPLOAD_URL);
+        }
+      } else {
+        WiFiClient client;
+        http.begin(client, SERVER_UPLOAD_URL);
+      }
+
+      http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+      http.addHeader("Content-Length", String(totalLen));
+      http.setTimeout(8000);
+
+      digitalWrite(STATUS_LED_PIN, LOW); // Status LED ON
       int httpCode = http.POST(buffer, totalLen);
-      digitalWrite(STATUS_LED_PIN, HIGH); // LED OFF
+      digitalWrite(STATUS_LED_PIN, HIGH); // Status LED OFF
 
       free(buffer);
 
       if (httpCode > 0) {
-        Serial.printf("[HTTP] Image Upload Success! Response: %d\n", httpCode);
+        Serial.printf("[HTTP] Image Upload Success! Response Code: %d\n", httpCode);
       } else {
         Serial.printf("[HTTP] Image Upload Failed: %s\n", http.errorToString(httpCode).c_str());
       }
+
+      http.end();
     } else {
       Serial.println("[Error] Memory allocation failed for multipart payload");
+      esp_camera_fb_return(fb);
+      fb = NULL;
     }
-
-    http.end();
   } else {
     Serial.println("[Camera] WiFi disconnected. Image upload skipped.");
+    esp_camera_fb_return(fb);
+    fb = NULL;
   }
-
-  // Release camera buffer
-  esp_camera_fb_return(fb);
 }
 
 void setup() {

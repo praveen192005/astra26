@@ -134,7 +134,9 @@ const char* SERVER_URL    = "https://astra26.onrender.com/api/telemetry";
    ```
 3. In Arduino IDE:
    - Board: **AI Thinker ESP32-CAM**
+   - **Tools $\rightarrow$ PSRAM:** **Enabled** *(Required! Prevents `cam_hal: FB-OVF` errors)*
    - Partition Scheme: **Huge APP (3MB No OTA/1MB SPIFFS)**
+   - Power: Connect to **5V pin** (minimum 1A power supply, avoid weak 3.3V pins)
 4. Connect **GPIO 0 to GND** before clicking Upload. Once flashed, disconnect GPIO 0 from GND and press the Reset button.
 5. Watch live photos appear on your web dashboard!
 

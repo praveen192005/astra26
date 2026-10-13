@@ -102,6 +102,15 @@ If you are using an AI-Thinker ESP32-CAM:
    - FTDI `RX` $\rightarrow$ ESP32-CAM `U0T (GPIO 1)`
    - **Crucial:** Jumper **GPIO 0** to **GND** before clicking Upload in Arduino IDE!
 2. After uploading finishes:
-   - Disconnect **GPIO 0** from **GND**.
-   - Press the **RESET** button on the back of the camera board.
 3. Open Serial Monitor at `115200` baud to confirm WiFi connection and image upload logs.
+
+### ⚠️ How to Fix `cam_hal: FB-OVF` (Frame Buffer Overflow)
+If your Serial Monitor repeatedly displays `cam_hal: FB-OVF`:
+1. **Enable PSRAM in Arduino IDE (Most Common Cause):**
+   - In Arduino IDE, click **Tools** $\rightarrow$ **PSRAM** $\rightarrow$ select **"Enabled"**!
+   - By default, PSRAM is disabled on fresh Arduino IDE installs. Without PSRAM, the ESP32 lacks memory for frame buffers, causing continuous buffer overflow.
+2. **Use 5V External Power (Not 3.3V Pin):**
+   - Power the ESP32-CAM using the **5V pin** from a power source capable of at least **1.0 Ampere**.
+   - Powering from a weak USB-TTL 3.3V pin causes brownout voltage dips when WiFi transmits, causing the camera sensor clock to glitch and flood `FB-OVF`.
+3. **Optimized Clock Frequency (10 MHz):**
+   - The updated `esp32_cam_uploader.ino` sets `config.xclk_freq_hz = 10000000` (10MHz) and `config.grab_mode = CAMERA_GRAB_LATEST`, preventing clock jitter and DMA FIFO queue buildup.
