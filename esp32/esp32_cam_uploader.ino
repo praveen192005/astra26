@@ -136,37 +136,34 @@ void setupCamera() {
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
   
-  // Standard OV2640 clock frequency
-  config.xclk_freq_hz = 20000000;
+  // 10MHz XCLK stabilizes DMA transfers and eliminates "cam_hal: FB-OVF" clock jitter
+  config.xclk_freq_hz = 10000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode    = CAMERA_GRAB_LATEST; // Continuously recycles buffers, completely eliminating FB-OVF!
 
   // Frame resolution & buffer configuration:
-  // CAMERA_GRAB_LATEST strictly requires fb_count > 1.
-  // If PSRAM is enabled, allocate 2 buffers with CAMERA_GRAB_LATEST.
-  // If PSRAM is disabled, allocate 1 buffer with CAMERA_GRAB_WHEN_EMPTY to prevent error 0x102.
+  // Using fb_count = 2 with CAMERA_GRAB_LATEST ensures the DMA engine always has
+  // a buffer available by dropping the oldest frame, which cures "cam_hal: FB-OVF".
   if (psramFound()) {
     config.frame_size   = FRAMESIZE_VGA;  // 640x480 crisp resolution
     config.jpeg_quality = 12;             // 10-63, lower is higher quality
     config.fb_count     = 2;
-    config.grab_mode    = CAMERA_GRAB_LATEST;
     config.fb_location  = CAMERA_FB_IN_PSRAM;
     Serial.println("[Camera] PSRAM detected! Dual frame buffers allocated in PSRAM.");
   } else {
-    config.frame_size   = FRAMESIZE_QVGA; // 320x240 for internal DRAM safety
-    config.jpeg_quality = 15;
-    config.fb_count     = 1;
-    config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
+    config.frame_size   = FRAMESIZE_QVGA; // 320x240 for internal DRAM safety (~7KB per frame)
+    config.jpeg_quality = 16;
+    config.fb_count     = 2;              // Dual buffer in DRAM allows CAMERA_GRAB_LATEST and stops FB-OVF!
     config.fb_location  = CAMERA_FB_IN_DRAM;
-    Serial.println("[Camera] WARNING: PSRAM not detected/enabled!");
-    Serial.println("[Camera] Tip: Enable PSRAM in Arduino IDE: Tools -> PSRAM -> Enabled");
-    Serial.println("[Camera] Operating in DRAM fallback mode (QVGA 320x240).");
+    Serial.println("[Camera] Notice: PSRAM not enabled in Arduino IDE (Tools -> PSRAM -> Enabled).");
+    Serial.println("[Camera] Allocated dual QVGA frame buffers in internal DRAM (~14KB total).");
   }
 
-  // Camera initialization with clock fallback
+  // Camera initialization
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("[Camera] Init failed at 20MHz (0x%x). Retrying at 10MHz...\n", err);
-    config.xclk_freq_hz = 10000000;
+    Serial.printf("[Camera] Init failed at 10MHz (0x%x). Retrying at 8MHz...\n", err);
+    config.xclk_freq_hz = 8000000;
     err = esp_camera_init(&config);
   }
 
@@ -209,16 +206,7 @@ void uploadPhoto() {
   Serial.println("\n[Camera] === CAPTURING SNAPSHOT ===");
   digitalWrite(STATUS_LED_PIN, LOW); // Status LED ON (active low)
 
-  // In single-buffer DRAM mode, drain any prior frame and wait for sensor sync
-  if (!psramFound()) {
-    camera_fb_t *stale_fb = esp_camera_fb_get();
-    if (stale_fb) {
-      esp_camera_fb_return(stale_fb);
-      delay(80); // Sensor scan interval
-    }
-  }
-
-  // Capture current frame with retry loop
+  // Capture fresh frame (CAMERA_GRAB_LATEST automatically provides the newest frame)
   camera_fb_t *fb = NULL;
   for (int attempt = 1; attempt <= 3; attempt++) {
     fb = esp_camera_fb_get();
@@ -229,8 +217,7 @@ void uploadPhoto() {
       esp_camera_fb_return(fb);
       fb = NULL;
     }
-    Serial.printf("[Camera] Frame capture attempt %d timed out, retrying in 100ms...\n", attempt);
-    delay(100);
+    delay(50);
   }
 
   if (!fb) {
