@@ -45,6 +45,10 @@
         <span class="status-dot"></span>
         <span id="deviceStatusText">Awaiting Hardware</span>
       </div>
+      <div class="info-pill location-pill" id="headerLocationPill" title="Deployment Site: IFET College of Engineering">
+        <i class="fa-solid fa-location-dot" style="color: var(--accent-cyan);"></i>
+        <span>IFET College, TN</span>
+      </div>
       <div class="info-pill" id="deviceRssiPill" title="WiFi Signal Strength">
         <i class="fa-solid fa-wifi"></i>
         <span id="wifiRssiVal">-- dBm</span>
@@ -57,6 +61,10 @@
 
     <!-- Quick Action Controls -->
     <div class="nav-actions">
+      <button class="btn btn-glass" id="btnScrollToMap" title="View IFET College Deployment Site on Map">
+        <i class="fa-solid fa-map-location-dot" style="color: var(--accent-cyan);"></i>
+        <span>Location</span>
+      </button>
       <button class="btn btn-glass" id="btnOpenSimulator" title="Simulate sensor packets without hardware">
         <i class="fa-solid fa-sliders"></i>
         <span>Simulator</span>
@@ -446,6 +454,86 @@
         </div>
       </article>
 
+      <!-- CARD 9: NODE GEOLOCATION & DEPLOYMENT MAP (IFET COLLEGE) -->
+      <article class="sensor-card card-map" id="cardLocationMap">
+        <div class="card-header">
+          <div class="sensor-title">
+            <span class="icon-bubble icon-map"><i class="fa-solid fa-map-location-dot"></i></span>
+            <div>
+              <h3>Deployment Location</h3>
+              <span class="sensor-model">IFET College of Engineering &bull; Autonomous</span>
+            </div>
+          </div>
+          <div class="map-badges">
+            <span class="status-badge badge-green" id="gpsStatusBadge"><i class="fa-solid fa-satellite"></i> GPS FIXED</span>
+            <button class="cam-refresh-btn" id="btnToggleMapType" title="Toggle Satellite / Street Map View">
+              <i class="fa-solid fa-layer-group"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body map-body">
+          <div class="map-viewport-box" id="mapViewportBox">
+            <iframe 
+              id="gmapsIframe"
+              title="IFET College of Engineering Location Map"
+              src="https://maps.google.com/maps?q=11.9207389,79.6107319+(IFET+College+of+Engineering)&t=m&z=16&ie=UTF8&iwloc=&output=embed"
+              loading="lazy"
+              allowfullscreen
+              referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+            
+            <div class="map-overlay-hud">
+              <div class="hud-top">
+                <span class="hud-tag font-mono"><i class="fa-solid fa-crosshairs"></i> 11.9207° N, 79.6107° E</span>
+                <span class="hud-tag font-mono" id="mapLayerTag"><i class="fa-solid fa-map"></i> ROADMAP</span>
+              </div>
+              <div class="hud-bottom">
+                <span class="hud-tag font-mono"><i class="fa-solid fa-building-columns"></i> IFET Campus, TN</span>
+                <button class="btn-cam-expand" id="btnExpandMap" title="Expand Fullscreen Map">
+                  <i class="fa-solid fa-expand"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="location-details-panel">
+            <div class="loc-address-row">
+              <i class="fa-solid fa-location-dot loc-pin-icon"></i>
+              <div class="loc-text-wrap">
+                <span class="loc-title">IFET College of Engineering (Autonomous Institution)</span>
+                <span class="loc-sub">IFET ROAD, Nagar, Gangarampalaiyam, Tamil Nadu 605108</span>
+              </div>
+            </div>
+
+            <div class="card-footer-metrics loc-metrics-grid">
+              <div class="sub-stat">
+                <span class="sub-label">LATITUDE</span>
+                <span class="sub-val font-mono">11.9207389° N</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-label">LONGITUDE</span>
+                <span class="sub-val font-mono">79.6107319° E</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-label">ALTITUDE</span>
+                <span class="sub-val font-mono">~38m ASL</span>
+              </div>
+            </div>
+
+            <a href="https://www.google.com/maps/dir//IFET+College+of+Engineering+(Autonomous+Institution),+College+of+Engineering,+IFET+ROAD,+Nagar,+Gangarampalaiyam,+Tamil+Nadu+605108/@11.9207389,79.608157,1157m/data=!3m1!1e3!4m16!1m7!3m6!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2sIFET+College+of+Engineering+(Autonomous+Institution)!8m2!3d11.9207389!4d79.6107319!16s%2Fg%2F11bw3gx5tz!4m7!1m0!1m5!1m1!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2m2!1d79.6107319!2d11.9207389?entry=ttu" 
+               target="_blank" 
+               rel="noopener noreferrer" 
+               class="btn-nav-gmaps"
+               id="btnGmapsDirections">
+              <i class="fa-solid fa-diamond-turn-right"></i>
+              <span>Get Directions on Google Maps</span>
+              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.75rem; margin-left: auto;"></i>
+            </a>
+          </div>
+        </div>
+      </article>
+
     </section>
 
     <!-- Interactive Real-Time Charting Section -->
@@ -710,6 +798,48 @@
           <div class="cam-info-bar">
             <span id="expandedCamTime">Timestamp: --:--:--</span>
             <span id="expandedCamDevice">Device: esp32-cam-01</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: EXPANDED MAP VIEW                                            -->
+  <!-- =================================================================== -->
+  <div class="modal-overlay hidden" id="modalMapExpanded">
+    <div class="modal-card modal-wide modal-map-view">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-earth-asia"></i>
+          <h3>IFET College of Engineering &bull; Live Satellite Geolocation</h3>
+        </div>
+        <button class="btn-modal-close" id="btnCloseExpandedMap"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body modal-map-body">
+        <div class="expanded-map-wrapper">
+          <iframe 
+            id="gmapsModalIframe"
+            title="IFET College of Engineering Expanded Map"
+            src="https://maps.google.com/maps?q=11.9207389,79.6107319+(IFET+College+of+Engineering)&t=m&z=17&ie=UTF8&iwloc=&output=embed"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+          <div class="expanded-map-info-bar">
+            <div class="expanded-map-text">
+              <i class="fa-solid fa-location-dot" style="color: var(--accent-cyan);"></i>
+              <strong>IFET College of Engineering (Autonomous Institution)</strong> &bull; IFET ROAD, Nagar, Gangarampalaiyam, Tamil Nadu 605108
+            </div>
+            <div class="expanded-map-coords font-mono">
+              GPS: 11.9207389° N, 79.6107319° E
+            </div>
+            <a href="https://www.google.com/maps/dir//IFET+College+of+Engineering+(Autonomous+Institution),+College+of+Engineering,+IFET+ROAD,+Nagar,+Gangarampalaiyam,+Tamil+Nadu+605108/@11.9207389,79.608157,1157m/data=!3m1!1e3!4m16!1m7!3m6!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2sIFET+College+of+Engineering+(Autonomous+Institution)!8m2!3d11.9207389!4d79.6107319!16s%2Fg%2F11bw3gx5tz!4m7!1m0!1m5!1m1!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2m2!1d79.6107319!2d11.9207389?entry=ttu" 
+               target="_blank" 
+               rel="noopener noreferrer" 
+               class="btn-modal-gmaps">
+              <i class="fa-solid fa-diamond-turn-right"></i> Open Navigation
+            </a>
           </div>
         </div>
       </div>

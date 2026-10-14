@@ -73,6 +73,21 @@ if os.path.exists(CAMERA_FILE_PATH) and os.path.getsize(CAMERA_FILE_PATH) > 0:
     except Exception:
         pass
 
+# Hardware Node Deployment Geolocation (IFET College of Engineering)
+NODE_LOCATION_INFO: Dict[str, Any] = {
+    "site": "IFET College of Engineering (Autonomous Institution)",
+    "address": "IFET ROAD, Nagar, Gangarampalaiyam, Tamil Nadu 605108",
+    "district": "Villupuram",
+    "state": "Tamil Nadu",
+    "country": "India",
+    "pincode": "605108",
+    "latitude": 11.9207389,
+    "longitude": 79.6107319,
+    "coordinates": "11.9207389° N, 79.6107319° E",
+    "altitudeMeters": 38,
+    "googleMapsUrl": "https://www.google.com/maps/dir//IFET+College+of+Engineering+(Autonomous+Institution),+College+of+Engineering,+IFET+ROAD,+Nagar,+Gangarampalaiyam,+Tamil+Nadu+605108/@11.9207389,79.608157,1157m/data=!3m1!1e3!4m16!1m7!3m6!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2sIFET+College+of+Engineering+(Autonomous+Institution)!8m2!3d11.9207389!4d79.6107319!16s%2Fg%2F11bw3gx5tz!4m7!1m0!1m5!1m1!1s0x3a5358fe9fd583c5:0xbc72123191afd4f1!2m2!1d79.6107319!2d11.9207389?entry=ttu"
+}
+
 
 # Pydantic Model for incoming ESP32 sensor telemetry
 class SensorPayload(BaseModel):
@@ -335,12 +350,23 @@ async def get_latest_telemetry():
             "status": "standby",
             "message": "Waiting for initial ESP32 telemetry packet",
             "data": mock_reading,
-            "camera": latest_camera_info
+            "camera": latest_camera_info,
+            "location": NODE_LOCATION_INFO
         }
     return {
         "status": "active",
         "data": latest_telemetry,
-        "camera": latest_camera_info
+        "camera": latest_camera_info,
+        "location": NODE_LOCATION_INFO
+    }
+
+
+@app.get("/api/location")
+async def get_node_location():
+    """Return verified hardware deployment geolocation (IFET College of Engineering)."""
+    return {
+        "status": "success",
+        "location": NODE_LOCATION_INFO
     }
 
 

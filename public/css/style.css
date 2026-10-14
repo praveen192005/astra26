@@ -512,6 +512,9 @@ body {
 .card-cam::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
 .icon-cam { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
 
+.card-map::before { background: linear-gradient(90deg, #06b6d4, #3b82f6); }
+.icon-map { background: rgba(6, 182, 212, 0.14); color: #06b6d4; }
+
 /* Incline / Tamper Alert State for Tilt Card */
 .card-tilt.alert-tilt {
   border-color: var(--border-alert);
@@ -1070,6 +1073,151 @@ body {
 }
 
 /* =====================================================================
+   DEPLOYMENT MAP & GEOLOCATION CARD (IFET COLLEGE)
+   ===================================================================== */
+.map-body {
+  padding-top: 6px;
+}
+
+.map-viewport-box {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #060913;
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+}
+
+.map-viewport-box iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.map-overlay-hud {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(7, 10, 18, 0.65) 0%, transparent 35%, transparent 65%, rgba(7, 10, 18, 0.8) 100%);
+  pointer-events: none;
+}
+
+.map-overlay-hud .hud-top,
+.map-overlay-hud .hud-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-overlay-hud button {
+  pointer-events: auto;
+}
+
+.location-details-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.loc-address-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+}
+
+.loc-address-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 242, 254, 0.25);
+}
+
+.loc-pin-icon {
+  color: var(--accent-cyan);
+  font-size: 1.15rem;
+  margin-top: 2px;
+  filter: drop-shadow(0 0 6px rgba(0, 242, 254, 0.4));
+}
+
+.loc-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.loc-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.loc-sub {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.loc-metrics-grid {
+  margin-top: 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.btn-nav-gmaps {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #070a12;
+  background: linear-gradient(135deg, #00f2fe, #38bdf8);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 15px rgba(0, 242, 254, 0.25);
+}
+
+.btn-nav-gmaps:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 242, 254, 0.45);
+  color: #000;
+}
+
+/* Header location pill */
+.location-pill {
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.location-pill:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.08);
+}
+
+/* Highlight flash animation when scrolling to map */
+@keyframes highlightPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7); }
+  50% { box-shadow: 0 0 40px 10px rgba(0, 242, 254, 0.4); }
+  100% { box-shadow: var(--shadow-card); }
+}
+
+.card-map.highlight-target {
+  animation: highlightPulse 1.8s ease-out;
+}
+
+/* =====================================================================
    REAL-TIME CHARTS SECTION
    ===================================================================== */
 .charts-section {
@@ -1502,6 +1650,66 @@ body {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* Expanded Map Modal */
+.modal-map-view {
+  max-width: 960px;
+  background: #060913;
+}
+.modal-map-body {
+  padding: 0;
+}
+.expanded-map-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.expanded-map-wrapper iframe {
+  width: 100%;
+  height: 520px;
+  border: none;
+  display: block;
+}
+.expanded-map-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #090e18;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.expanded-map-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.expanded-map-coords {
+  color: var(--accent-cyan);
+  font-size: 0.82rem;
+}
+.btn-modal-gmaps {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #00f2fe, #0284c7);
+  color: #070a12;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+.btn-modal-gmaps:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 242, 254, 0.4);
+  color: #000;
 }
 
 /* =====================================================================

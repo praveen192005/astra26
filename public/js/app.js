@@ -108,6 +108,18 @@
     btnRefreshCam: document.getElementById('btnRefreshCam'),
     btnExpandCam: document.getElementById('btnExpandCam'),
 
+    // Map & Location Card
+    cardLocationMap: document.getElementById('cardLocationMap'),
+    headerLocationPill: document.getElementById('headerLocationPill'),
+    btnScrollToMap: document.getElementById('btnScrollToMap'),
+    gmapsIframe: document.getElementById('gmapsIframe'),
+    btnToggleMapType: document.getElementById('btnToggleMapType'),
+    mapLayerTag: document.getElementById('mapLayerTag'),
+    btnExpandMap: document.getElementById('btnExpandMap'),
+    modalMapExpanded: document.getElementById('modalMapExpanded'),
+    btnCloseExpandedMap: document.getElementById('btnCloseExpandedMap'),
+    gmapsModalIframe: document.getElementById('gmapsModalIframe'),
+
     // Table & Logs
     telemetryTableBody: document.getElementById('telemetryTableBody'),
     logCounter: document.getElementById('logCounter'),
@@ -1021,11 +1033,56 @@
     el.btnExpandCam.addEventListener('click', () => el.modalCameraExpanded.classList.remove('hidden'));
     el.btnCloseExpandedCam.addEventListener('click', () => el.modalCameraExpanded.classList.add('hidden'));
 
-    // Close on outside click
-    [el.modalSimulator, el.modalWiring, el.modalCameraExpanded].forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
+    // Location Map Layer Toggle (Street / Satellite)
+    let isSatelliteMode = false;
+    const mapQuery = "11.9207389,79.6107319+(IFET+College+of+Engineering)";
+
+    if (el.btnToggleMapType) {
+      el.btnToggleMapType.addEventListener('click', () => {
+        isSatelliteMode = !isSatelliteMode;
+        const layerType = isSatelliteMode ? 'k' : 'm'; // 'k' = satellite, 'm' = roadmap
+        const zoom = isSatelliteMode ? 17 : 16;
+        const newSrc = `https://maps.google.com/maps?q=${mapQuery}&t=${layerType}&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+        
+        if (el.gmapsIframe) el.gmapsIframe.src = newSrc;
+        if (el.gmapsModalIframe) el.gmapsModalIframe.src = newSrc;
+        
+        if (el.mapLayerTag) {
+          el.mapLayerTag.innerHTML = isSatelliteMode 
+            ? '<i class="fa-solid fa-satellite"></i> SATELLITE' 
+            : '<i class="fa-solid fa-map"></i> ROADMAP';
+        }
       });
+    }
+
+    // Scroll to Map from Header Pill or Nav Button
+    const scrollToMapFn = () => {
+      if (el.cardLocationMap) {
+        el.cardLocationMap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.cardLocationMap.classList.remove('highlight-target');
+        void el.cardLocationMap.offsetWidth; // trigger reflow
+        el.cardLocationMap.classList.add('highlight-target');
+      }
+    };
+
+    if (el.btnScrollToMap) el.btnScrollToMap.addEventListener('click', scrollToMapFn);
+    if (el.headerLocationPill) el.headerLocationPill.addEventListener('click', scrollToMapFn);
+
+    // Expand Map Modal
+    if (el.btnExpandMap && el.modalMapExpanded) {
+      el.btnExpandMap.addEventListener('click', () => el.modalMapExpanded.classList.remove('hidden'));
+    }
+    if (el.btnCloseExpandedMap && el.modalMapExpanded) {
+      el.btnCloseExpandedMap.addEventListener('click', () => el.modalMapExpanded.classList.add('hidden'));
+    }
+
+    // Close on outside click
+    [el.modalSimulator, el.modalWiring, el.modalCameraExpanded, el.modalMapExpanded].forEach(modal => {
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.classList.add('hidden');
+        });
+      }
     });
 
     // Chart range filters
