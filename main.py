@@ -56,6 +56,23 @@ ASSETS_DIR = os.path.join(PUBLIC_DIR, "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 CAMERA_FILE_PATH = os.path.join(ASSETS_DIR, "latest_camera.jpg")
 
+# Populate latest_camera_info if an image is already cached on disk
+if os.path.exists(CAMERA_FILE_PATH) and os.path.getsize(CAMERA_FILE_PATH) > 0:
+    try:
+        mtime = os.path.getmtime(CAMERA_FILE_PATH)
+        dt = datetime.fromtimestamp(mtime)
+        latest_camera_info = {
+            "available": True,
+            "deviceId": "esp32-cam-01",
+            "timestamp": dt.isoformat(),
+            "timeFormatted": dt.strftime("%H:%M:%S"),
+            "filename": "latest_camera.jpg",
+            "size_bytes": os.path.getsize(CAMERA_FILE_PATH),
+            "url": f"/assets/latest_camera.jpg?t={int(mtime)}"
+        }
+    except Exception:
+        pass
+
 
 # Pydantic Model for incoming ESP32 sensor telemetry
 class SensorPayload(BaseModel):
@@ -408,17 +425,46 @@ async def clear_history():
 
 @app.post("/api/camera/upload")
 async def upload_camera_frame(
-    file: UploadFile = File(...),
-    deviceId: str = Form("esp32-cam-01")
+    request: Request,
+    file: Optional[UploadFile] = File(None),
+    deviceId: Optional[str] = Form(None)
 ):
     """
     Receives JPEG camera snapshot frames uploaded by ESP32-CAM board.
+    Supports both multipart/form-data ('file' or 'image' field) and raw binary JPEG stream.
     """
     global latest_camera_info
     try:
-        content = await file.read()
+        content = None
+        dev_id = deviceId or request.headers.get("x-device-id") or request.query_params.get("deviceId", "esp32-cam-01")
+
+        # 1. Try reading from multipart file upload if present
+        if file is not None:
+            content = await file.read()
+        else:
+            content_type = request.headers.get("content-type", "")
+            if "multipart/form-data" in content_type:
+                try:
+                    form = await request.form()
+                    for key in ["file", "image", "frame", "upload", "snapshot"]:
+                        if key in form and hasattr(form[key], "read"):
+                            content = await form[key].read()
+                            break
+                    if not content and "file" in form and isinstance(form["file"], (bytes, bytearray)):
+                        content = bytes(form["file"])
+                    if not dev_id and "deviceId" in form:
+                        dev_id = str(form["deviceId"])
+                except Exception:
+                    pass
+
+        # 2. If not multipart or form had no file, read raw body directly
         if not content:
-            raise HTTPException(status_code=400, detail="Empty image file received")
+            body = await request.body()
+            if body and len(body) > 100:
+                content = body
+
+        if not content or len(content) < 100:
+            raise HTTPException(status_code=400, detail="Empty or invalid image data received (must be at least 100 bytes)")
 
         with open(CAMERA_FILE_PATH, "wb") as f:
             f.write(content)
@@ -426,7 +472,7 @@ async def upload_camera_frame(
         now = datetime.now()
         latest_camera_info = {
             "available": True,
-            "deviceId": deviceId,
+            "deviceId": str(dev_id),
             "timestamp": now.isoformat(),
             "timeFormatted": now.strftime("%H:%M:%S"),
             "filename": "latest_camera.jpg",
@@ -442,6 +488,8 @@ async def upload_camera_frame(
             "message": "Camera snapshot frame stored successfully",
             "camera": latest_camera_info
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -449,12 +497,17 @@ async def upload_camera_frame(
 @app.get("/api/camera/latest")
 async def get_latest_camera():
     """Serve the latest camera image, or default standby preview."""
+    no_cache_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
     if os.path.exists(CAMERA_FILE_PATH) and os.path.getsize(CAMERA_FILE_PATH) > 0:
-        return FileResponse(CAMERA_FILE_PATH, media_type="image/jpeg")
+        return FileResponse(CAMERA_FILE_PATH, media_type="image/jpeg", headers=no_cache_headers)
     
     standby_path = os.path.join(ASSETS_DIR, "camera_standby.jpg")
     if os.path.exists(standby_path):
-        return FileResponse(standby_path, media_type="image/jpeg")
+        return FileResponse(standby_path, media_type="image/jpeg", headers=no_cache_headers)
         
     return JSONResponse(status_code=404, content={"status": "not_found", "message": "No camera frame uploaded yet"})
 

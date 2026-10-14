@@ -101,16 +101,30 @@ If you are using an AI-Thinker ESP32-CAM:
    - FTDI `TX` $\rightarrow$ ESP32-CAM `U0R (GPIO 3)`
    - FTDI `RX` $\rightarrow$ ESP32-CAM `U0T (GPIO 1)`
    - **Crucial:** Jumper **GPIO 0** to **GND** before clicking Upload in Arduino IDE!
-2. After uploading finishes:
-3. Open Serial Monitor at `115200` baud to confirm WiFi connection and image upload logs.
+2. **After uploading finishes (CRITICAL STEP):**
+   - **Disconnect the GPIO 0 jumper from GND!**
+   - Press the **RST (Reset)** button on the underside of the ESP32-CAM board.
+   - *If GPIO 0 remains connected to GND, the ESP32-CAM stays frozen in bootloader mode and will never execute your sketch!*
+3. **Open Serial Monitor at `115200` baud:**
+   - Look for `[Camera] OV2640 camera sensor initialized successfully!`
+   - Look for `[WiFi] Connected successfully!`
+   - Look for `[HTTP] SUCCESS! Image received by server (Code: 200)`
 
-### ⚠️ How to Fix `cam_hal: FB-OVF` (Frame Buffer Overflow)
-If your Serial Monitor repeatedly displays `cam_hal: FB-OVF`:
-1. **Enable PSRAM in Arduino IDE (Most Common Cause):**
-   - In Arduino IDE, click **Tools** $\rightarrow$ **PSRAM** $\rightarrow$ select **"Enabled"**!
-   - By default, PSRAM is disabled on fresh Arduino IDE installs. Without PSRAM, the ESP32 lacks memory for frame buffers, causing continuous buffer overflow.
-2. **Use 5V External Power (Not 3.3V Pin):**
-   - Power the ESP32-CAM using the **5V pin** from a power source capable of at least **1.0 Ampere**.
-   - Powering from a weak USB-TTL 3.3V pin causes brownout voltage dips when WiFi transmits, causing the camera sensor clock to glitch and flood `FB-OVF`.
-3. **Optimized Clock Frequency (10 MHz):**
-   - The updated `esp32_cam_uploader.ino` sets `config.xclk_freq_hz = 10000000` (10MHz) and `config.grab_mode = CAMERA_GRAB_LATEST`, preventing clock jitter and DMA FIFO queue buildup.
+---
+
+## 🛠️ ESP32-CAM Troubleshooting Checklist
+
+### 1. Camera Initialization Failed (`error 0x102` or `error 0x20003`)
+- **Fix:** In Arduino IDE, click **Tools** $\rightarrow$ **PSRAM** $\rightarrow$ select **"Enabled"**.
+- Ensure Board is set to **"AI Thinker ESP32-CAM"**.
+- Check the 24-pin ribbon cable connecting the OV2640 lens to the board. Gently lift the black clip, re-seat the ribbon cable flat, and snap the clip down firmly.
+
+### 2. Brownout Detector Triggered / Boot Loop
+- **Fix:** Power the ESP32-CAM using the **5V pin** with an external supply or quality USB port capable of at least **1.0 Ampere** (1000mA).
+- Never power through a weak 3.3V pin from an FTDI adapter during camera captures; the camera + WiFi radio draw up to 500mA peak, causing voltage drops.
+- The firmware automatically disables the brownout detector via `RTC_CNTL_BROWN_OUT_REG` to protect against micro-dips.
+
+### 3. Image Upload Failed / No Image on Website
+- Verify that your WiFi SSID and Password in `esp32_cam_uploader.ino` match your network.
+- Confirm that `SERVER_UPLOAD_URL` is set to `https://astra26.onrender.com/api/camera/upload`.
+- Check Serial Monitor logs: our updated firmware streams frames directly over TCP without memory copying, preventing heap crashes even on non-PSRAM setups.
